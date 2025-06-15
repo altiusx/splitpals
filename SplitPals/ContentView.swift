@@ -8,15 +8,42 @@
 import SwiftUI
 
 struct ContentView: View {
+    
+    @State private var expenses: [(String, Double)] = [
+        ("Starbutts Coffee", 16.80),
+        ("Uber", 33.90),
+        ("Theme Park", 127.70)
+    ]
+    
+    @State private var showAddExpenseForm: Bool = false
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        NavigationView{
+            List{
+                ForEach(expenses, id: \.0) { expense in
+                    ExpenseRow(name: expense.0, amount: expense.1)
+                }
+                .onDelete(perform: deleteExpense)
+            }
+            .navigationTitle("Expenses")
+            .toolbar{
+                EditButton()
+                Button(action: {
+                    showAddExpenseForm = true
+                }) {
+                    Image(systemName: "plus")
+                }
+            }
+            .sheet(isPresented: $showAddExpenseForm) {
+                AddExpenseView { name, amount in expenses.append((name, amount))}
+            }
         }
-        .padding()
     }
+    
+    func deleteExpense(at offsets: IndexSet) {
+        expenses.remove(atOffsets: offsets)
+    }
+    
 }
 
 #Preview {
