@@ -26,9 +26,7 @@ struct AddExpenseView: View {
     // Error Handling
     @State private var showErrorAlert = false
     @State private var userFriendlyErrorMessage = ""
-    
-    var onSave: (String, Double) -> Void
-    
+        
     var amount: Double {
         Double(Int(rawAmount) ?? 0) / 100.0
     }
@@ -61,7 +59,8 @@ struct AddExpenseView: View {
                         TextField("", text: $rawAmount)
                             .keyboardType(.numberPad)
                             .focused($isAmountFieldFocused)
-                            .opacity(0.01)
+                            .opacity(0)
+                            .allowsHitTesting(false)
                             .onChange(of: rawAmount) {
                                 let filtered = rawAmount.filter {$0.isNumber}
                                 if filtered != rawAmount {
@@ -72,6 +71,9 @@ struct AddExpenseView: View {
                 }
                 Section(header: Text("Currency")) {
                     Picker("Currency", selection: $selectedCurrency) {
+                        if selectedCurrency == nil {
+                            Text("Select a currency").tag(nil as Currency?)
+                        }
                         ForEach(currencies, id: \.self) { currency in
                             Text(currency.name ?? "").tag(currency as Currency?)
                         }
