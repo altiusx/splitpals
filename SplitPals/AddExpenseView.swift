@@ -23,6 +23,8 @@ struct AddExpenseView: View {
     @State private var selectedCurrency: Currency? = nil
     @FocusState private var isAmountFieldFocused: Bool
     
+    var group: ExpenseGroup?
+    
     // Error Handling
     @State private var showErrorAlert = false
     @State private var userFriendlyErrorMessage = ""
@@ -130,6 +132,10 @@ struct AddExpenseView: View {
         expense.amount = amount
         expense.timestamp = Date()
         expense.currency = currency
+        
+        if let group = group {
+            expense.expensegroup = group
+        }
         
         do {
             try viewContext.save()
