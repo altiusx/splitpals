@@ -14,10 +14,7 @@ struct CurrencyReceiptsSection: View {
 
     var body: some View {
         Section(header:
-            Text(currency?.name?.uppercased() ?? "UNKNOWN")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        ) {
+            Text(currency?.name?.uppercased() ?? "UNKNOWN")) {
             ForEach(receipts, id: \.objectID) { receipt in
                 ReceiptRow(receipt: receipt)
                     .contentShape(Rectangle())
