@@ -4,24 +4,24 @@
         <attribute name="code" optional="YES" attributeType="String"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="symbol" optional="YES" attributeType="String"/>
-        <relationship name="expenses" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Expense" inverseName="currency" inverseEntity="Expense"/>
+        <relationship name="receipt" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Receipt" inverseName="currency" inverseEntity="Receipt"/>
         <uniquenessConstraints>
             <uniquenessConstraint>
                 <constraint value="code"/>
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="Expense" representedClassName="Expense" syncable="YES" codeGenerationType="class">
+    <entity name="Receipt" representedClassName="Receipt" syncable="YES" codeGenerationType="class">
         <attribute name="amount" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <relationship name="currency" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Currency" inverseName="expenses" inverseEntity="Currency"/>
-        <relationship name="expensegroup" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ExpenseGroup" inverseName="expenses" inverseEntity="ExpenseGroup"/>
+        <relationship name="currency" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Currency" inverseName="receipt" inverseEntity="Currency"/>
+        <relationship name="wallet" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Wallet" inverseName="receipt" inverseEntity="Wallet"/>
     </entity>
-    <entity name="ExpenseGroup" representedClassName="ExpenseGroup" syncable="YES" codeGenerationType="class">
+    <entity name="Wallet" representedClassName="Wallet" syncable="YES" codeGenerationType="class">
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="lastUpdated" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="name" optional="YES" attributeType="String"/>
-        <relationship name="expenses" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Expense" inverseName="expensegroup" inverseEntity="Expense"/>
+        <relationship name="receipt" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Receipt" inverseName="wallet" inverseEntity="Receipt"/>
     </entity>
 </model>

@@ -9,10 +9,22 @@ import SwiftUI
 import CoreData
 import UIKit
 
-struct AddExpenseView: View {
+struct AddEditReceipt: View {
+    
+    var receiptToEdit: Receipt? = nil
+    var wallet: Wallet?
+    var onSave: (() -> Void)? = nil
+    
     @Environment(\.dismiss) var dismiss
     @Environment(\.managedObjectContext) private var viewContext
     
+    // edit wallet to put receipt in
+    @FetchRequest(entity: Wallet.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \Wallet.name, ascending: true)]
+    ) var wallets: FetchedResults<Wallet>
+    
+    @State private var selectedWallet: Wallet? = nil
+ 
+    // currencies and value
     @FetchRequest(
         entity: Currency.entity(),
         sortDescriptors: [NSSortDescriptor(keyPath: \Currency.name, ascending: true)]
@@ -22,8 +34,6 @@ struct AddExpenseView: View {
     @State private var rawAmount: String = ""
     @State private var selectedCurrency: Currency? = nil
     @FocusState private var isAmountFieldFocused: Bool
-    
-    var group: ExpenseGroup?
     
     // Error Handling
     @State private var showErrorAlert = false
@@ -94,15 +104,41 @@ struct AddExpenseView: View {
 //                        }
 //                    }
                 }
+                Section(header: Text("Wallet")) {
+                    Picker("Wallet", selection: $selectedWallet) {
+                        if selectedWallet == nil {
+                            Text("Select a wallet").tag(nil as Wallet?)
+                        }
+                        ForEach(wallets, id: \.self) { wallet in
+                            Text(wallet.name ?? "Unnamed Wallet").tag(wallet as Wallet?)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
             }
-            .navigationTitle("Add Expense")
+            .navigationTitle(receiptToEdit == nil ? "Add Receipt" : "Edit Receipt")
+            .onAppear{
+                if let receipt = receiptToEdit {
+                    name = receipt.name ?? ""
+                    rawAmount = String(Int((receipt.amount * 100).rounded()))
+                    selectedCurrency = receipt.currency
+                    selectedWallet = receipt.wallet
+                } else {
+                    if selectedCurrency == nil, !currencies.isEmpty {
+                        selectedCurrency = currencies.first(where: { $0.code == "SGD" }) ?? currencies.first
+                    }
+                    if selectedWallet == nil, !wallets.isEmpty {
+                        selectedWallet = wallets.first
+                    }
+                }
+            }
             .toolbar{
                 ToolbarItem(placement: .confirmationAction){
                     Button("Save") {
-                            saveExpense()
-                            dismiss()
+                        saveReceipt()
+                        dismiss()
                     }
-                    .disabled(selectedCurrency == nil || Int(rawAmount) == nil || name.isEmpty || rawAmount.isEmpty)
+                    .disabled(selectedCurrency == nil || Int(rawAmount) == nil || name.isEmpty || rawAmount.isEmpty || selectedWallet == nil)
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -118,33 +154,34 @@ struct AddExpenseView: View {
         }
     }
     
-    private func saveExpense() {
+    private func saveReceipt() {
         guard let currency = selectedCurrency,
-            !name.isEmpty,
-            let _ = Int(rawAmount) else {
+              let wallet = selectedWallet,
+              !name.isEmpty,
+              let _ = Int(rawAmount) else {
             userFriendlyErrorMessage = "Please fill in all fields correctly."
             showErrorAlert = true
             return
         }
-        
-        let expense = Expense(context: viewContext)
-        expense.name = name
-        expense.amount = amount
-        expense.timestamp = Date()
-        expense.currency = currency
-        
-        if let group = group {
-            expense.expensegroup = group
+
+        let receipt: Receipt
+        if let existing = receiptToEdit {
+            receipt = existing
+        } else {
+            receipt = Receipt(context: viewContext)
+            receipt.timestamp = Date()
         }
-        
+
+        receipt.name = name
+        receipt.amount = amount
+        receipt.currency = currency
+        receipt.wallet = wallet
+
         do {
             try viewContext.save()
+            onSave?()
             dismiss()
         } catch {
-            #if DEBUG
-            print("Core Data save error: ", error)
-            print("Failed to save expense: ", error.localizedDescription)
-            #endif
             userFriendlyErrorMessage = "Sorry, something went wrong. Please try again."
             showErrorAlert = true
             let generator = UINotificationFeedbackGenerator()

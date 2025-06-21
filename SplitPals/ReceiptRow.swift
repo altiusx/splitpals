@@ -7,15 +7,14 @@
 
 import SwiftUI
 
-struct ExpenseRow: View {
-    let name: String
-    let amount: Double
+struct ReceiptRow: View {
+    let receipt: Receipt
     
     var body: some View {
         HStack {
-            Text(name)
+            Text(receipt.name ?? "")
             Spacer()
-            Text(String(format: "$%.2f", amount))
+            Text("\(receipt.currency?.symbol ?? "")\(String(format: "%.2f", receipt.amount))")
         }
     }
 }
