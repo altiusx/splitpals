@@ -124,11 +124,15 @@ struct AddEditReceipt: View {
                     selectedCurrency = receipt.currency
                     selectedWallet = receipt.wallet
                 } else {
+                    if selectedWallet == nil {
+                        if let currentWallet = wallet {
+                            selectedWallet = currentWallet
+                        } else if !wallets.isEmpty {
+                            selectedWallet = wallets.first
+                        }
+                    }
                     if selectedCurrency == nil, !currencies.isEmpty {
                         selectedCurrency = currencies.first(where: { $0.code == "SGD" }) ?? currencies.first
-                    }
-                    if selectedWallet == nil, !wallets.isEmpty {
-                        selectedWallet = wallets.first
                     }
                 }
             }
