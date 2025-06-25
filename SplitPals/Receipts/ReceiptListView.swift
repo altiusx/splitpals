@@ -64,7 +64,7 @@ struct ReceiptListView: View {
             }
             .navigationTitle(wallet?.name ?? "Receipts")
             .toolbar {
-                EditButton()
+//                EditButton()
                 Button(action: {
                     activeSheet = .add
                 }) {

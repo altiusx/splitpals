@@ -20,6 +20,8 @@
     </entity>
     <entity name="Wallet" representedClassName="Wallet" syncable="YES" codeGenerationType="class">
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="gradientName" optional="YES" attributeType="String"/>
+        <attribute name="icon" optional="YES" attributeType="String"/>
         <attribute name="lastUpdated" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <relationship name="receipt" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Receipt" inverseName="wallet" inverseEntity="Receipt"/>

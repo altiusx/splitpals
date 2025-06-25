@@ -26,12 +26,7 @@ struct ReceiptRow: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.currencyCode = code
-        // If you want to force your own symbol (optional!):
         if let symbol = currency.symbol { formatter.currencySymbol = symbol }
-
-        // Optionally set min/max fraction digits based on code
-        // but for most currencies, NumberFormatter does this for you
-
         return formatter.string(from: NSNumber(value: receipt.amount))
             ?? "\(currency.symbol ?? "")\(receipt.amount)"
     }
