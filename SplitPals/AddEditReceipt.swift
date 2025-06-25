@@ -39,8 +39,17 @@ struct AddEditReceipt: View {
     @State private var showErrorAlert = false
     @State private var userFriendlyErrorMessage = ""
         
+    var fractionDigits: Int {
+        guard let code = selectedCurrency?.code else { return 2 }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = code
+        return formatter.maximumFractionDigits
+    }
+
     var amount: Double {
-        Double(Int(rawAmount) ?? 0) / 100.0
+        let divisor = pow(10.0, Double(fractionDigits))
+        return (Double(Int(rawAmount) ?? 0)) / divisor
     }
     
     var formattedAmount: String {
@@ -97,6 +106,9 @@ struct AddEditReceipt: View {
                             selectedCurrency = currencies.first(where: {$0.code == "SGD"}) ?? currencies.first
                         }
                     }
+//                    .onChange(of: selectedCurrency) {
+//                        rawAmount = ""
+//                    }
                     // in case async fetch or changes in core data
 //                    .onChange(of: currencies) { newCurrencies in
 //                        if selectedCurrency == nil, let first = newCurrencies.first {
@@ -120,7 +132,16 @@ struct AddEditReceipt: View {
             .onAppear{
                 if let receipt = receiptToEdit {
                     name = receipt.name ?? ""
-                    rawAmount = String(Int((receipt.amount * 100).rounded()))
+                    // Use correct divisor for currency decimals
+                    let fractionDigits: Int = {
+                        guard let code = receipt.currency?.code else { return 2 }
+                        let formatter = NumberFormatter()
+                        formatter.numberStyle = .currency
+                        formatter.currencyCode = code
+                        return formatter.maximumFractionDigits
+                    }()
+                    let divisor = pow(10.0, Double(fractionDigits))
+                    rawAmount = String(Int((receipt.amount * divisor).rounded()))
                     selectedCurrency = receipt.currency
                     selectedWallet = receipt.wallet
                 } else {
