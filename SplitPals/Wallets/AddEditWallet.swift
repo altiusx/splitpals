@@ -28,13 +28,20 @@ struct AddEditWallet: View {
         NavigationView {
             Form {
                 Section {
-                    AppCardView(
-                        icon: selectedSymbol,
-                        gradientColors: availableGradients.first(where: { $0.name == selectedGradientName })?.colors ?? [Color.blue, Color.purple],
-                        title: walletName.isEmpty ? "Wallet" : walletName
-                    )
-                    .aspectRatio(1.4, contentMode: .fit)
-                    .padding(.bottom)
+                    GeometryReader { geo in
+                        HStack {
+                            Spacer()
+                            AppCardView(
+                                icon: selectedSymbol,
+                                gradientColors: availableGradients.first(where: { $0.name == selectedGradientName })?.colors ?? [Color.blue, Color.purple],
+                                title: walletName.isEmpty ? "Wallet" : walletName
+                            )
+                            .frame(width: geo.size.width * 0.6, height: geo.size.width * 0.6 / 1.4)
+                            Spacer()
+                        }
+                    }
+                    .frame(height: UIScreen.main.bounds.width * 0.6 / 1.4)
+                    .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
                 Section(header: Text("Name")) {

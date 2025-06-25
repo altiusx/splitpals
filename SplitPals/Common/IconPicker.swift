@@ -25,7 +25,6 @@ struct IconPicker: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
             // Search Bar
             HStack {
                 Image(systemName: "magnifyingglass")
@@ -35,17 +34,11 @@ struct IconPicker: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(.systemBackground).opacity(0.9))
-            )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color(.separator), lineWidth: 1)
             )
-            .frame(maxWidth: .infinity)
-            .padding(.top, 12)
-            .padding(.bottom, 12)
+            .padding()
             
             // Icons
             ScrollView {
@@ -74,11 +67,11 @@ struct IconPicker: View {
                     }
                 }
             }
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color(UIColor.systemBackground))
-        )
+        
+//        .background(
+//            RoundedRectangle(cornerRadius: 28, style: .continuous)
+//                .fill(Color(UIColor.systemBackground))
+//        )
     }
 
     @ViewBuilder
