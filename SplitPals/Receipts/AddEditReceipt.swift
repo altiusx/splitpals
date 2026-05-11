@@ -1,5 +1,5 @@
 //
-//  AddExpenseView.swift
+//  AddEditReceipt.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 15/6/25.
@@ -36,15 +36,16 @@ struct AddEditReceipt: View {
     @FocusState private var isAmountFieldFocused: Bool
     
     // Error Handling
-    @State private var showErrorAlert = false
-    @State private var userFriendlyErrorMessage = ""
+    @StateObject private var errorHandler = ErrorHandler()
+    
+    // Manager
+    private var receiptManager: ReceiptManager {
+        ReceiptManager(context: viewContext)
+    }
         
     var fractionDigits: Int {
-        guard let code = selectedCurrency?.code else { return 2 }
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = code
-        return formatter.maximumFractionDigits
+        guard let currency = selectedCurrency, let code = currency.code else { return 2 }
+        return CurrencyFormatter.fractionDigits(for: code)
     }
 
     var amount: Double {
@@ -54,11 +55,7 @@ struct AddEditReceipt: View {
     
     var formattedAmount: String {
         guard let currency = selectedCurrency else { return "$0.00" }
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currency.code
-        formatter.currencySymbol = currency.symbol
-        return formatter.string(from: NSNumber(value: amount)) ?? "\(currency.symbol ?? "$")0.00"
+        return CurrencyFormatter.format(amount: amount, currency: currency)
     }
     
     var body: some View {
@@ -100,21 +97,6 @@ struct AddEditReceipt: View {
                         }
                     }
                     .pickerStyle(.menu)
-                    .onAppear{
-                        if selectedCurrency == nil, !currencies.isEmpty {
-                            // to include coreLocation to determine currency
-                            selectedCurrency = currencies.first(where: {$0.code == "SGD"}) ?? currencies.first
-                        }
-                    }
-//                    .onChange(of: selectedCurrency) {
-//                        rawAmount = ""
-//                    }
-                    // in case async fetch or changes in core data
-//                    .onChange(of: currencies) { newCurrencies in
-//                        if selectedCurrency == nil, let first = newCurrencies.first {
-//                            selectedCurrency = newCurrencies.first(where: {$0.code == "SGD"}) ?? first
-//                        }
-//                    }
                 }
                 Section(header: Text("Wallet")) {
                     Picker("Wallet", selection: $selectedWallet) {
@@ -129,22 +111,19 @@ struct AddEditReceipt: View {
                 }
             }
             .navigationTitle(receiptToEdit == nil ? "Add Receipt" : "Edit Receipt")
-            .onAppear{
+            .onAppear {
                 if let receipt = receiptToEdit {
                     name = receipt.name ?? ""
-                    // Use correct divisor for currency decimals
-                    let fractionDigits: Int = {
-                        guard let code = receipt.currency?.code else { return 2 }
-                        let formatter = NumberFormatter()
-                        formatter.numberStyle = .currency
-                        formatter.currencyCode = code
-                        return formatter.maximumFractionDigits
-                    }()
-                    let divisor = pow(10.0, Double(fractionDigits))
-                    rawAmount = String(Int((receipt.amount * divisor).rounded()))
+                    
+                    // Use CurrencyFormatter to convert amount to raw string
+                    if let currency = receipt.currency {
+                        rawAmount = CurrencyFormatter.convertToRawAmount(receipt.amount, currency: currency)
+                    }
+                    
                     selectedCurrency = receipt.currency
                     selectedWallet = receipt.wallet
                 } else {
+                    // Set default wallet
                     if selectedWallet == nil {
                         if let currentWallet = wallet {
                             selectedWallet = currentWallet
@@ -152,8 +131,11 @@ struct AddEditReceipt: View {
                             selectedWallet = wallets.first
                         }
                     }
+                    
+                    // Set default currency based on user's locale
                     if selectedCurrency == nil, !currencies.isEmpty {
-                        selectedCurrency = currencies.first(where: { $0.code == "SGD" }) ?? currencies.first
+                        let defaultCode = CurrencyFormatter.defaultCurrencyCode()
+                        selectedCurrency = currencies.first(where: { $0.code == defaultCode }) ?? currencies.first
                     }
                 }
             }
@@ -161,7 +143,6 @@ struct AddEditReceipt: View {
                 ToolbarItem(placement: .confirmationAction){
                     Button("Save") {
                         saveReceipt()
-                        dismiss()
                     }
                     .disabled(selectedCurrency == nil || Int(rawAmount) == nil || name.isEmpty || rawAmount.isEmpty || selectedWallet == nil)
                 }
@@ -171,44 +152,52 @@ struct AddEditReceipt: View {
                     }
                 }
             }
-            .alert("Oops!", isPresented: $showErrorAlert) {
-                Button("OK", role: .cancel) {}
-            } message : {
-                Text(userFriendlyErrorMessage)
-            }
+            .errorAlert(errorHandler: errorHandler)
         }
     }
     
     private func saveReceipt() {
-        guard let currency = selectedCurrency,
-              let wallet = selectedWallet,
-              !name.isEmpty,
-              let _ = Int(rawAmount) else {
-            userFriendlyErrorMessage = "Please fill in all fields correctly."
-            showErrorAlert = true
+        guard let currency = selectedCurrency else {
+            errorHandler.handle(.missingCurrency)
+            return
+        }
+        
+        guard let wallet = selectedWallet else {
+            errorHandler.handle(.missingWallet)
+            return
+        }
+        
+        guard !name.isEmpty else {
+            errorHandler.handle(.invalidInput("Please enter a description"))
+            return
+        }
+        
+        guard !rawAmount.isEmpty, Int(rawAmount) != nil else {
+            errorHandler.handle(.invalidInput("Please enter an amount"))
             return
         }
 
-        let receipt: Receipt
-        if let existing = receiptToEdit {
-            receipt = existing
-        } else {
-            receipt = Receipt(context: viewContext)
-            receipt.timestamp = Date()
-        }
-
-        receipt.name = name
-        receipt.amount = amount
-        receipt.currency = currency
-        receipt.wallet = wallet
-
         do {
-            try viewContext.save()
+            if let existing = receiptToEdit {
+                try receiptManager.updateReceipt(
+                    existing,
+                    name: name,
+                    amount: amount,
+                    currency: currency,
+                    wallet: wallet
+                )
+            } else {
+                _ = try receiptManager.createReceipt(
+                    name: name,
+                    amount: amount,
+                    currency: currency,
+                    wallet: wallet
+                )
+            }
             onSave?()
             dismiss()
         } catch {
-            userFriendlyErrorMessage = "Sorry, something went wrong. Please try again."
-            showErrorAlert = true
+            errorHandler.handleCoreDataError(error, operation: "save")
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
         }

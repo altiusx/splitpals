@@ -1,5 +1,5 @@
 //
-//  ExpenseGroup+Extensions.swift
+//  Wallet+Extensions.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 16/6/25.

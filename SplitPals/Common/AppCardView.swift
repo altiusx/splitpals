@@ -44,15 +44,6 @@ struct AppCardView: View {
                 HStack {
                     Image(systemName: icon).font(.title)
                     Spacer()
-                    // TODO: in the future, add icons of user account faces
-//                    if let onEdit, let onAddReceipt, let onDelete {
-//                        Image(systemName: "ellipsis.circle.fill")
-//                            .font(.title2)
-//                            .foregroundColor(.white.opacity(0.9))
-//                            .contextMenu {
-//                                cardContextMenu()
-//                            }
-//                    }
                 }
                 Spacer()
                 Text(title)

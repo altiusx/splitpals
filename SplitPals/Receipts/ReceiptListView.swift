@@ -1,5 +1,5 @@
 //
-//  ExpenseListView.swift
+//  ReceiptListView.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 16/6/25.
@@ -12,9 +12,13 @@ struct ReceiptListView: View {
     @FetchRequest private var receipts: FetchedResults<Receipt>
 
     @Environment(\.managedObjectContext) private var viewContext
+    @StateObject private var errorHandler = ErrorHandler()
+    
+    private var receiptManager: ReceiptManager {
+        ReceiptManager(context: viewContext)
+    }
 
     @State private var activeSheet: ReceiptSheet? = nil
-    @State private var reloadToken = UUID()
     
     init(wallet: Wallet?) {
         self.wallet = wallet
@@ -35,7 +39,6 @@ struct ReceiptListView: View {
     }
 
     var body: some View {
-        let _ = reloadToken
         let groups: [(currency: Currency?, receipts: [Receipt])] = {
             let grouped = Dictionary(grouping: receipts, by: { $0.currency })
             let sortedKeys = grouped.keys.sorted { ($0?.name ?? "") < ($1?.name ?? "") }
@@ -60,11 +63,9 @@ struct ReceiptListView: View {
                         })
                     }
                 }
-            .id(reloadToken)
             }
             .navigationTitle(wallet?.name ?? "Receipts")
             .toolbar {
-//                EditButton()
                 Button(action: {
                     activeSheet = .add
                 }) {
@@ -75,26 +76,26 @@ struct ReceiptListView: View {
                 switch sheet {
                 case .add:
                     AddEditReceipt(wallet: wallet)
-                        .onDisappear { reloadToken = UUID()}
                 case .edit(let objectID):
                     if let receipt = try? viewContext.existingObject(with: objectID) as? Receipt {
                         AddEditReceipt(receiptToEdit: receipt, wallet: wallet)
-                            .onDisappear { reloadToken = UUID()}
                     } else {
                         Text("This receipt no longer exists.")
                     }
                 }
             }
+            .errorAlert(errorHandler: errorHandler)
         }
-
-
+    
+    
     func deleteReceipt(from receipts: [Receipt], at offsets: IndexSet) {
         for index in offsets {
             let receipt = receipts[index]
-            viewContext.delete(receipt)
-        }
-        do { try viewContext.save() } catch {
-            // error handling
+            do {
+                try receiptManager.deleteReceipt(receipt)
+            } catch {
+                errorHandler.handleCoreDataError(error, operation: "delete")
+            }
         }
     }
 }

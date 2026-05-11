@@ -1,5 +1,5 @@
 //
-//  ExpenseRow.swift
+//  ReceiptRow.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 15/6/25.
@@ -19,16 +19,10 @@ struct ReceiptRow: View {
     }
 
     private func formattedAmount() -> String {
-        guard let currency = receipt.currency, let code = currency.code else {
-            // fallback if currency missing
+        guard let currency = receipt.currency else {
             return String(format: "%.2f", receipt.amount)
         }
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = code
-        if let symbol = currency.symbol { formatter.currencySymbol = symbol }
-        return formatter.string(from: NSNumber(value: receipt.amount))
-            ?? "\(currency.symbol ?? "")\(receipt.amount)"
+        return CurrencyFormatter.format(amount: receipt.amount, currency: currency)
     }
 }
 

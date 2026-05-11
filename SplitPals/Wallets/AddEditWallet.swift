@@ -11,6 +11,12 @@ struct AddEditWallet: View {
     @Environment(\.managedObjectContext) var viewContext
     @Environment(\.dismiss) private var dismiss
     
+    @StateObject private var errorHandler = ErrorHandler()
+    
+    private var walletManager: WalletManager {
+        WalletManager(context: viewContext)
+    }
+    
     // Inputs for wallet creation
     @State private var walletName: String = ""
     @State private var selectedGradientName: String = "Sunset"
@@ -29,18 +35,18 @@ struct AddEditWallet: View {
             Form {
                 Section {
                     GeometryReader { geo in
-                        HStack {
-                            Spacer()
+                        VStack {
                             AppCardView(
                                 icon: selectedSymbol,
                                 gradientColors: availableGradients.first(where: { $0.name == selectedGradientName })?.colors ?? [Color.blue, Color.purple],
                                 title: walletName.isEmpty ? "Wallet" : walletName
                             )
-                            .frame(width: geo.size.width * 0.6, height: geo.size.width * 0.6 / 1.4)
-                            Spacer()
+                            .frame(width: geo.size.width * 0.7)
+                            .aspectRatio(1.4, contentMode: .fit)
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .frame(height: UIScreen.main.bounds.width * 0.6 / 1.4)
+                    .frame(height: 200)
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
@@ -65,7 +71,6 @@ struct AddEditWallet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         saveWallet()
-                        onSave?()
                     }
                     .disabled(walletName.isEmpty)
                 }
@@ -75,6 +80,7 @@ struct AddEditWallet: View {
                     }
                 }
             }
+            .errorAlert(errorHandler: errorHandler)
         }
     }
     
@@ -88,24 +94,31 @@ struct AddEditWallet: View {
     }
     
     private func saveWallet() {
+        guard !walletName.isEmpty else {
+            errorHandler.handle(.invalidInput("Please enter a wallet name"))
+            return
+        }
+        
         withAnimation {
-            let wallet: Wallet
-            if let walletToEdit = walletToEdit {
-                wallet = walletToEdit
-            } else {
-                wallet = Wallet(context: viewContext)
-                wallet.createdAt = Date()
-            }
-            wallet.name = walletName
-            wallet.gradientName = selectedGradientName
-            wallet.icon = selectedSymbol
-
             do {
-                try viewContext.save()
+                if let walletToEdit = walletToEdit {
+                    try walletManager.updateWallet(
+                        walletToEdit,
+                        name: walletName,
+                        gradientName: selectedGradientName,
+                        icon: selectedSymbol
+                    )
+                } else {
+                    _ = try walletManager.createWallet(
+                        name: walletName,
+                        gradientName: selectedGradientName,
+                        icon: selectedSymbol
+                    )
+                }
                 onSave?()
                 dismiss()
             } catch {
-                // error handling
+                errorHandler.handleCoreDataError(error, operation: "save")
             }
         }
     }

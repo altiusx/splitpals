@@ -1,5 +1,5 @@
 //
-//  ExpensewalletsView.swift
+//  WalletView.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 16/6/25.
@@ -15,6 +15,11 @@ struct WalletView: View {
     ) var uncategorisedReceipts: FetchedResults<Receipt>
     
     @Environment(\.managedObjectContext) private var viewContext
+    @StateObject private var errorHandler = ErrorHandler()
+    
+    private var walletManager: WalletManager {
+        WalletManager(context: viewContext)
+    }
     
     // warning prompts when deleting wallet
     @State private var walletToDelete: Wallet?
@@ -54,36 +59,13 @@ struct WalletView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: gridColumns, spacing: 20) {
-                    ForEach(filteredWallets) { wallet in
-                        NavigationLink(destination: ReceiptListView(wallet: wallet)) {
-                            AppCardView(
-                                icon: wallet.icon ?? "creditcard",
-                                gradientColors: colorForWallet(wallet),
-                                title: wallet.name ?? "Uncategorised Receipts",
-                                onEdit: {
-                                    activeSheet = .editWallet(wallet)
-                                },
-                                onAddReceipt: {
-                                    activeSheet = .addReceipt(wallet)
-                                },
-                                onDelete: { walletToDelete = wallet; showDeletePrompt = true }
-                            )
-                            .aspectRatio(1.4, contentMode: .fit)
-                        }
-                    }
-                }
-                .padding()
+                walletsGrid()
+                    .padding()
             }
             .navigationTitle("Wallets")
             .toolbar {
-//                ToolbarItem(placement: .topBarLeading) {
-//                    EditButton()
-//                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { activeSheet = .addWallet }) {
-                        Image(systemName: "plus")
-                    }
+                ToolbarItem(placement: .automatic) {
+                    addWalletButton
                 }
             }
             .sheet(item: $activeSheet) { sheet in
@@ -113,14 +95,42 @@ struct WalletView: View {
                 Text("This will delete \(wallet.name ?? "wallet") and all its receipts")
             }
         }
+        .errorAlert(errorHandler: errorHandler)
+    }
+    
+    private var addWalletButton: some View {
+        Button(action: { activeSheet = .addWallet }) {
+            Label("Add Wallet", systemImage: "plus")
+                .labelStyle(.iconOnly)
+        }
+    }
+    
+    @ViewBuilder
+    private func walletsGrid() -> some View {
+        LazyVGrid(columns: gridColumns, spacing: 20) {
+            ForEach(filteredWallets) { wallet in
+                NavigationLink(destination: ReceiptListView(wallet: wallet)) {
+                    AppCardView(
+                        icon: wallet.icon ?? "creditcard",
+                        gradientColors: colorForWallet(wallet),
+                        title: wallet.name ?? "Uncategorised Receipts",
+                        onEdit: { activeSheet = .editWallet(wallet) },
+                        onAddReceipt: { activeSheet = .addReceipt(wallet) },
+                        onDelete: { walletToDelete = wallet; showDeletePrompt = true }
+                    )
+                    .aspectRatio(1.4, contentMode: .fit)
+                }
+            }
+        }
     }
     
     func deleteWallet(at offsets: IndexSet) {
-        for idx in offsets { viewContext.delete(wallets[idx])}
-        do {
-            try viewContext.save()
-        } catch {
-            // error handling
+        for idx in offsets {
+            do {
+                try walletManager.deleteWallet(wallets[idx])
+            } catch {
+                errorHandler.handleCoreDataError(error, operation: "delete")
+            }
         }
     }
     
