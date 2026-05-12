@@ -109,11 +109,16 @@ struct AddEditWallet: View {
                         icon: selectedSymbol
                     )
                 } else {
-                    _ = try walletManager.createWallet(
+                    let wallet = try walletManager.createWallet(
                         name: walletName,
                         gradientName: selectedGradientName,
                         icon: selectedSymbol
                     )
+                    let personManager = PersonManager(context: viewContext)
+                    if let currentUser = try personManager.fetchCurrentUser() {
+                        wallet.addToMembers(currentUser)
+                        try viewContext.save()
+                    }
                 }
                 onSave?()
                 dismiss()

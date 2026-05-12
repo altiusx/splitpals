@@ -37,59 +37,70 @@ class PersistenceController {
     }
     
     private func seedCurrencies(context: NSManagedObjectContext) {
+        let defaultCurrencies = [
+            ("AUD", "A$", "Australian Dollar"),
+            ("CAD", "C$", "Canadian Dollar"),
+            ("CHF", "CHF", "Swiss Franc"),
+            ("CNY", "CNY", "Chinese Yuan"),
+            ("EUR", "€", "Euro"),
+            ("GBP", "£", "British Pound"),
+            ("HKD", "HK$", "Hong Kong Dollar"),
+            ("IDR", "Rp", "Indonesian Rupiah"),
+            ("INR", "₹", "Indian Rupee"),
+            ("JPY", "¥", "Japanese Yen"),
+            ("KRW", "₩", "South Korean Won"),
+            ("MYR", "RM", "Malaysian Ringgit"),
+            ("NZD", "NZ$", "New Zealand Dollar"),
+            ("SGD", "S$", "Singapore Dollar"),
+            ("THB", "฿", "Thai Baht"),
+            ("TWD", "NT$", "Taiwan Dollar"),
+            ("USD", "$", "US Dollar"),
+            ("VND", "₫", "Vietnamese Dong")
+        ]
+
+        let validCodes = Set(defaultCurrencies.map { $0.0 })
+
         let fetchRequest: NSFetchRequest<Currency> = Currency.fetchRequest()
-        fetchRequest.fetchLimit = 1
-        
+        var existingByCode: [String: Currency] = [:]
         do {
-            let count = try context.count(for: fetchRequest)
-            if count > 0 {
-                logger.info("Currencies already seeded, skipping")
-                return
+            let existing = try context.fetch(fetchRequest)
+            for currency in existing {
+                if let code = currency.code {
+                    existingByCode[code] = currency
+                }
             }
         } catch {
-            logger.error("Failed to check if currencies are seeded: \(error.localizedDescription)")
+            logger.error("Failed to fetch existing currencies: \(error.localizedDescription)")
+        }
+
+        var addedCount = 0
+        for (code, symbol, name) in defaultCurrencies {
+            if existingByCode[code] == nil {
+                let currency = Currency(context: context)
+                currency.code = code
+                currency.symbol = symbol
+                currency.name = name
+                existingByCode[code] = currency
+                addedCount += 1
+            }
+        }
+
+        var removedCount = 0
+        for (code, currency) in existingByCode where !validCodes.contains(code) {
+            context.delete(currency)
+            removedCount += 1
+        }
+
+        guard addedCount > 0 || removedCount > 0 else {
+            logger.info("All currencies already up to date")
             return
         }
-        
-        logger.info("Seeding currencies...")
-        
-        let defaultCurrencies = [
-            ("USD", "$", "US Dollar"),
-            ("SGD", "S$", "Singapore Dollar"),
-            ("CNY", "CNY", "Chinese Yuan"),
-            ("CAD", "C$", "Canadian Dollar"),
-            ("AUD", "A$", "Australian Dollar"),
-            ("CHF", "CHF", "Swiss Franc"),
-            ("HKD", "HK$", "Hong Kong Dollar"),
-            ("THB", "฿", "Thai Baht"),
-            ("NZD", "NZ$", "New Zealand Dollar"),
-            ("INR", "₹", "Indian Rupee"),
-            ("BRL", "R$", "Brazilian Real"),
-            ("IDR", "Rp", "Indonesian Rupiah"),
-            ("MXN", "MX$", "Mexican Peso"),
-            ("ILS", "₪", "Israeli New Sheqel"),
-            ("TRY", "₺", "Turkish Lira"),
-            ("PLN", "zł", "Polish Zloty"),
-            ("NTD", "NT$", "Taiwan New Dollar"),
-            ("MOP", "MOP$", "Macanese Pataca"),
-            ("JPY", "¥", "Japanese Yen"),
-            ("GBP", "£", "British Pound"),
-            ("EUR", "€", "Euro"),
-            ("MYR", "RM", "Malaysian Ringgit")
-        ]
-        
-        for (code, symbol, name) in defaultCurrencies {
-            let currency = Currency(context: context)
-            currency.code = code
-            currency.symbol = symbol
-            currency.name = name
-        }
-        
+
         do {
             try context.save()
-            logger.info("Successfully seeded \(defaultCurrencies.count) currencies")
+            logger.info("Currencies updated: \(addedCount) added, \(removedCount) removed")
         } catch {
-            logger.error("Failed to seed currencies: \(error.localizedDescription)")
+            logger.error("Failed to update currencies: \(error.localizedDescription)")
         }
     }
     

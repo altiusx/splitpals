@@ -1,0 +1,51 @@
+//
+//  SettingsView.swift
+//  SplitPals
+//
+//  Created by Chris Choong
+//
+
+import SwiftUI
+import CoreData
+
+struct SettingsView: View {
+    @AppStorage("forceDarkMode") private var forceDarkMode = false
+    @EnvironmentObject var exchangeRateService: ExchangeRateService
+
+    @FetchRequest(
+        entity: Currency.entity(),
+        sortDescriptors: [NSSortDescriptor(keyPath: \Currency.name, ascending: true)]
+    ) var currencies: FetchedResults<Currency>
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Toggle("Dark Mode", isOn: $forceDarkMode)
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Turn on dark mode to always display in a dark appearance. Turning it off will follow system settings.")
+                }
+
+                Section {
+                    Picker("Home Currency", selection: Binding(
+                        get: { exchangeRateService.baseCurrency },
+                        set: { exchangeRateService.baseCurrency = $0 }
+                    )) {
+                        ForEach(currencies, id: \.self) { currency in
+                            Text("\(currency.code ?? "") — \(currency.name ?? "")")
+                                .tag(currency.code ?? "")
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                } header: {
+                    Text("Currency")
+                } footer: {
+                    Text("Receipts in other currencies will show converted amounts in \(exchangeRateService.baseCurrency).")
+                }
+            }
+            .navigationTitle("Settings")
+        }
+    }
+}

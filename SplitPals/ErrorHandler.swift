@@ -16,7 +16,8 @@ enum AppError: LocalizedError {
     case invalidInput(String)
     case missingCurrency
     case missingWallet
-    
+    case missingPerson
+
     var errorDescription: String? {
         switch self {
         case .coreDataSaveFailed:
@@ -31,16 +32,18 @@ enum AppError: LocalizedError {
             return "Please select a currency"
         case .missingWallet:
             return "Please select a wallet"
+        case .missingPerson:
+            return "Please select a person"
         }
     }
-    
+
     var recoverySuggestion: String? {
         switch self {
         case .coreDataSaveFailed, .coreDataFetchFailed, .coreDataDeleteFailed:
             return "Please try again. If the problem persists, restart the app."
         case .invalidInput:
             return "Please check your input and try again."
-        case .missingCurrency, .missingWallet:
+        case .missingCurrency, .missingWallet, .missingPerson:
             return "Please make a selection and try again."
         }
     }

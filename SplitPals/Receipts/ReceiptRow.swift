@@ -8,13 +8,21 @@
 import SwiftUI
 
 struct ReceiptRow: View {
-    let receipt: Receipt
+    @ObservedObject var receipt: Receipt
+    @EnvironmentObject var exchangeRateService: ExchangeRateService
 
     var body: some View {
         HStack {
             Text(receipt.name ?? "")
             Spacer()
-            Text(formattedAmount())
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(formattedAmount())
+                if let converted = convertedAmount() {
+                    Text(converted)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -23,6 +31,11 @@ struct ReceiptRow: View {
             return String(format: "%.2f", receipt.amount)
         }
         return CurrencyFormatter.format(amount: receipt.amount, currency: currency)
+    }
+
+    private func convertedAmount() -> String? {
+        guard let code = receipt.currency?.code else { return nil }
+        return exchangeRateService.formatConverted(amount: receipt.amount, from: code)
     }
 }
 

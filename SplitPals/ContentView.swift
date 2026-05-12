@@ -6,17 +6,41 @@
 //
 
 import SwiftUI
+import CoreData
 
 struct ContentView: View {
-    var body: some View {
-        WalletView()
-//            NavigationView {
-//                
-//            }
-        }
-    
-}
+    @Environment(\.managedObjectContext) var viewContext
 
-#Preview {
-    ContentView()
+    @FetchRequest(
+        entity: Person.entity(),
+        sortDescriptors: [],
+        predicate: NSPredicate(format: "isCurrentUser == YES")
+    ) var currentUserResults: FetchedResults<Person>
+
+    @State private var hasCompletedOnboarding = false
+
+    var body: some View {
+        if currentUserResults.isEmpty && !hasCompletedOnboarding {
+            OnboardingView {
+                hasCompletedOnboarding = true
+            }
+        } else {
+            TabView {
+                WalletView()
+                    .tabItem {
+                        Label("Groups", systemImage: "rectangle.stack")
+                    }
+
+                FriendsView()
+                    .tabItem {
+                        Label("Friends", systemImage: "person.2")
+                    }
+
+                SettingsView()
+                    .tabItem {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+            }
+        }
+    }
 }

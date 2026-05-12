@@ -34,6 +34,7 @@ struct AddEditReceipt: View {
     @State private var rawAmount: String = ""
     @State private var selectedCurrency: Currency? = nil
     @FocusState private var isAmountFieldFocused: Bool
+    @State private var shouldClearOnInput: Bool = false
     
     // Error Handling
     @StateObject private var errorHandler = ErrorHandler()
@@ -80,6 +81,12 @@ struct AddEditReceipt: View {
                             .opacity(0)
                             .allowsHitTesting(false)
                             .onChange(of: rawAmount) {
+                                if shouldClearOnInput {
+                                    let newDigit = rawAmount.filter { $0.isNumber }.suffix(1)
+                                    rawAmount = String(newDigit)
+                                    shouldClearOnInput = false
+                                    return
+                                }
                                 let filtered = rawAmount.filter {$0.isNumber}
                                 if filtered != rawAmount {
                                     rawAmount = filtered
@@ -122,6 +129,7 @@ struct AddEditReceipt: View {
                     
                     selectedCurrency = receipt.currency
                     selectedWallet = receipt.wallet
+                    shouldClearOnInput = true
                 } else {
                     // Set default wallet
                     if selectedWallet == nil {

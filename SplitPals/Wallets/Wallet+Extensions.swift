@@ -13,5 +13,10 @@ extension Wallet {
             ($0.timestamp ?? Date()) > ($1.timestamp ?? Date())
         }
     }
+
+    var membersArray: [Person] {
+        let set = members as? Set<Person> ?? []
+        return set.sorted { ($0.name ?? "") < ($1.name ?? "") }
+    }
 }
 
