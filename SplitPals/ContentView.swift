@@ -26,7 +26,7 @@ struct ContentView: View {
             }
         } else {
             TabView {
-                WalletView()
+                GroupView()
                     .tabItem {
                         Label("Groups", systemImage: "rectangle.stack")
                     }

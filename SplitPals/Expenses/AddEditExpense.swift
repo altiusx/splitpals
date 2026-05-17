@@ -1,5 +1,5 @@
 //
-//  AddEditReceipt.swift
+//  AddEditExpense.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 15/6/25.
@@ -9,41 +9,40 @@ import SwiftUI
 import CoreData
 import UIKit
 
-struct AddEditReceipt: View {
-    
-    var receiptToEdit: Receipt? = nil
-    var wallet: Wallet?
+struct AddEditExpense: View {
+
+    var expenseToEdit: Expense? = nil
+    var group: ExpenseGroup?
     var onSave: (() -> Void)? = nil
-    
+
     @Environment(\.dismiss) var dismiss
     @Environment(\.managedObjectContext) private var viewContext
-    
-    // edit wallet to put receipt in
-    @FetchRequest(entity: Wallet.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \Wallet.name, ascending: true)]
-    ) var wallets: FetchedResults<Wallet>
-    
-    @State private var selectedWallet: Wallet? = nil
- 
+
+    @FetchRequest(entity: ExpenseGroup.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \ExpenseGroup.name, ascending: true)]
+    ) var groups: FetchedResults<ExpenseGroup>
+
+    @State private var selectedGroup: ExpenseGroup? = nil
+
     // currencies and value
     @FetchRequest(
         entity: Currency.entity(),
         sortDescriptors: [NSSortDescriptor(keyPath: \Currency.name, ascending: true)]
     ) var currencies: FetchedResults<Currency>
-    
+
     @State private var name: String = ""
     @State private var rawAmount: String = ""
     @State private var selectedCurrency: Currency? = nil
     @FocusState private var isAmountFieldFocused: Bool
     @State private var shouldClearOnInput: Bool = false
-    
+
     // Error Handling
     @StateObject private var errorHandler = ErrorHandler()
-    
+
     // Manager
-    private var receiptManager: ReceiptManager {
-        ReceiptManager(context: viewContext)
+    private var expenseManager: ExpenseManager {
+        ExpenseManager(context: viewContext)
     }
-        
+
     var fractionDigits: Int {
         guard let currency = selectedCurrency, let code = currency.code else { return 2 }
         return CurrencyFormatter.fractionDigits(for: code)
@@ -53,18 +52,18 @@ struct AddEditReceipt: View {
         let divisor = pow(10.0, Double(fractionDigits))
         return (Double(Int(rawAmount) ?? 0)) / divisor
     }
-    
+
     var formattedAmount: String {
         guard let currency = selectedCurrency else { return "$0.00" }
         return CurrencyFormatter.format(amount: amount, currency: currency)
     }
-    
+
     var body: some View {
         NavigationView{
             Form{
                 Section(header: Text("Details")){
                     TextField("Description", text: $name)
-                    
+
                     ZStack(alignment: .leading) {
                         // show the formatted amount as text
                         Text(formattedAmount)
@@ -105,41 +104,41 @@ struct AddEditReceipt: View {
                     }
                     .pickerStyle(.menu)
                 }
-                Section(header: Text("Wallet")) {
-                    Picker("Wallet", selection: $selectedWallet) {
-                        if selectedWallet == nil {
-                            Text("Select a wallet").tag(nil as Wallet?)
+                Section(header: Text("Group")) {
+                    Picker("Group", selection: $selectedGroup) {
+                        if selectedGroup == nil {
+                            Text("Select a group").tag(nil as ExpenseGroup?)
                         }
-                        ForEach(wallets, id: \.self) { wallet in
-                            Text(wallet.name ?? "Unnamed Wallet").tag(wallet as Wallet?)
+                        ForEach(groups, id: \.self) { group in
+                            Text(group.name ?? "Unnamed Group").tag(group as ExpenseGroup?)
                         }
                     }
                     .pickerStyle(.menu)
                 }
             }
-            .navigationTitle(receiptToEdit == nil ? "Add Receipt" : "Edit Receipt")
+            .navigationTitle(expenseToEdit == nil ? "Add Expense" : "Edit Expense")
             .onAppear {
-                if let receipt = receiptToEdit {
-                    name = receipt.name ?? ""
-                    
+                if let expense = expenseToEdit {
+                    name = expense.name ?? ""
+
                     // Use CurrencyFormatter to convert amount to raw string
-                    if let currency = receipt.currency {
-                        rawAmount = CurrencyFormatter.convertToRawAmount(receipt.amount, currency: currency)
+                    if let currency = expense.currency {
+                        rawAmount = CurrencyFormatter.convertToRawAmount(expense.amount, currency: currency)
                     }
-                    
-                    selectedCurrency = receipt.currency
-                    selectedWallet = receipt.wallet
+
+                    selectedCurrency = expense.currency
+                    selectedGroup = expense.group
                     shouldClearOnInput = true
                 } else {
-                    // Set default wallet
-                    if selectedWallet == nil {
-                        if let currentWallet = wallet {
-                            selectedWallet = currentWallet
-                        } else if !wallets.isEmpty {
-                            selectedWallet = wallets.first
+                    // Set default group
+                    if selectedGroup == nil {
+                        if let currentGroup = group {
+                            selectedGroup = currentGroup
+                        } else if !groups.isEmpty {
+                            selectedGroup = groups.first
                         }
                     }
-                    
+
                     // Set default currency based on user's locale
                     if selectedCurrency == nil, !currencies.isEmpty {
                         let defaultCode = CurrencyFormatter.defaultCurrencyCode()
@@ -150,9 +149,9 @@ struct AddEditReceipt: View {
             .toolbar{
                 ToolbarItem(placement: .confirmationAction){
                     Button("Save") {
-                        saveReceipt()
+                        saveExpense()
                     }
-                    .disabled(selectedCurrency == nil || Int(rawAmount) == nil || name.isEmpty || rawAmount.isEmpty || selectedWallet == nil)
+                    .disabled(selectedCurrency == nil || Int(rawAmount) == nil || name.isEmpty || rawAmount.isEmpty || selectedGroup == nil)
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -163,43 +162,43 @@ struct AddEditReceipt: View {
             .errorAlert(errorHandler: errorHandler)
         }
     }
-    
-    private func saveReceipt() {
+
+    private func saveExpense() {
         guard let currency = selectedCurrency else {
             errorHandler.handle(.missingCurrency)
             return
         }
-        
-        guard let wallet = selectedWallet else {
-            errorHandler.handle(.missingWallet)
+
+        guard let group = selectedGroup else {
+            errorHandler.handle(.missingGroup)
             return
         }
-        
+
         guard !name.isEmpty else {
             errorHandler.handle(.invalidInput("Please enter a description"))
             return
         }
-        
+
         guard !rawAmount.isEmpty, Int(rawAmount) != nil else {
             errorHandler.handle(.invalidInput("Please enter an amount"))
             return
         }
 
         do {
-            if let existing = receiptToEdit {
-                try receiptManager.updateReceipt(
+            if let existing = expenseToEdit {
+                try expenseManager.updateExpense(
                     existing,
                     name: name,
                     amount: amount,
                     currency: currency,
-                    wallet: wallet
+                    group: group
                 )
             } else {
-                _ = try receiptManager.createReceipt(
+                _ = try expenseManager.createExpense(
                     name: name,
                     amount: amount,
                     currency: currency,
-                    wallet: wallet
+                    group: group
                 )
             }
             onSave?()
@@ -210,5 +209,4 @@ struct AddEditReceipt: View {
             generator.notificationOccurred(.error)
         }
     }
-    
 }

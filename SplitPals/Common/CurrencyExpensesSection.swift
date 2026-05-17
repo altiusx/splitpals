@@ -1,20 +1,20 @@
 //
-//  CurrencyReceiptsSection.swift
+//  CurrencyExpensesSection.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 22/6/25.
 //
 import SwiftUI
 
-struct CurrencyReceiptsSection: View {
+struct CurrencyExpensesSection: View {
     let currency: Currency?
-    let receipts: [Receipt]
-    let onEdit: (Receipt) -> Void
+    let expenses: [Expense]
+    let onEdit: (Expense) -> Void
     let onDelete: (IndexSet) -> Void
     @EnvironmentObject var exchangeRateService: ExchangeRateService
 
     private var subtotal: Double {
-        receipts.reduce(0) { $0 + $1.amount }
+        expenses.reduce(0) { $0 + $1.amount }
     }
 
     private var convertedSubtotal: String? {
@@ -24,10 +24,10 @@ struct CurrencyReceiptsSection: View {
 
     var body: some View {
         Section {
-            ForEach(receipts, id: \.objectID) { receipt in
-                ReceiptRow(receipt: receipt)
+            ForEach(expenses, id: \.objectID) { expense in
+                ExpenseRow(expense: expense)
                     .contentShape(Rectangle())
-                    .onTapGesture { onEdit(receipt) }
+                    .onTapGesture { onEdit(expense) }
             }
             .onDelete(perform: onDelete)
         } header: {
@@ -49,5 +49,3 @@ struct CurrencyReceiptsSection: View {
         }
     }
 }
-
-

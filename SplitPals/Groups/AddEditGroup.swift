@@ -1,5 +1,5 @@
 //
-//  AddEditWallet.swift
+//  AddEditGroup.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 25/6/25.
@@ -7,29 +7,29 @@
 import SwiftUI
 import CoreData
 
-struct AddEditWallet: View {
+struct AddEditGroup: View {
     @Environment(\.managedObjectContext) var viewContext
     @Environment(\.dismiss) private var dismiss
-    
+
     @StateObject private var errorHandler = ErrorHandler()
-    
-    private var walletManager: WalletManager {
-        WalletManager(context: viewContext)
+
+    private var groupManager: GroupManager {
+        GroupManager(context: viewContext)
     }
-    
-    // Inputs for wallet creation
-    @State private var walletName: String = ""
+
+    // Inputs for group creation
+    @State private var groupName: String = ""
     @State private var selectedGradientName: String = "Sunset"
     @State private var selectedSymbol: String = "iphone"
-    
-    // editing wallet
-    var walletToEdit: Wallet? = nil
-    
+
+    // editing group
+    var groupToEdit: ExpenseGroup? = nil
+
     // callback for parent to refresh UI
     var onSave: (() -> Void)?
-    
+
     let availableGradients: [AppCardGradient] = cardGradients
-    
+
     var body: some View {
         NavigationView {
             Form {
@@ -39,7 +39,7 @@ struct AddEditWallet: View {
                             AppCardView(
                                 icon: selectedSymbol,
                                 gradientColors: availableGradients.first(where: { $0.name == selectedGradientName })?.colors ?? [Color.blue, Color.purple],
-                                title: walletName.isEmpty ? "Wallet" : walletName
+                                title: groupName.isEmpty ? "Group" : groupName
                             )
                             .frame(width: geo.size.width * 0.7)
                             .aspectRatio(1.4, contentMode: .fit)
@@ -51,7 +51,7 @@ struct AddEditWallet: View {
                     .listRowBackground(Color.clear)
                 }
                 Section(header: Text("Name")) {
-                    TextField("Wallet Name", text: $walletName)
+                    TextField("Group Name", text: $groupName)
                 }
                 Section(header: Text("Color")) {
                     GradientColorPicker(
@@ -66,13 +66,13 @@ struct AddEditWallet: View {
                     )
                 }
             }
-            .navigationTitle(walletToEdit == nil ? "Add Wallet" : "Edit Wallet")
+            .navigationTitle(groupToEdit == nil ? "Add Group" : "Edit Group")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        saveWallet()
+                        saveGroup()
                     }
-                    .disabled(walletName.isEmpty)
+                    .disabled(groupName.isEmpty)
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -83,40 +83,40 @@ struct AddEditWallet: View {
             .errorAlert(errorHandler: errorHandler)
         }
     }
-    
-    init(walletToEdit: Wallet? = nil, onSave: (() -> Void)? = nil) {
-        self.walletToEdit = walletToEdit
+
+    init(groupToEdit: ExpenseGroup? = nil, onSave: (() -> Void)? = nil) {
+        self.groupToEdit = groupToEdit
         self.onSave = onSave
-        // when editing, prefill the wallet state
-        _walletName = State(initialValue: walletToEdit?.name ?? "")
-        _selectedGradientName = State(initialValue: walletToEdit?.gradientName ?? "Sunset")
-        _selectedSymbol = State(initialValue: walletToEdit?.icon ?? "iphone")
+        // when editing, prefill the group state
+        _groupName = State(initialValue: groupToEdit?.name ?? "")
+        _selectedGradientName = State(initialValue: groupToEdit?.gradientName ?? "Sunset")
+        _selectedSymbol = State(initialValue: groupToEdit?.icon ?? "iphone")
     }
-    
-    private func saveWallet() {
-        guard !walletName.isEmpty else {
-            errorHandler.handle(.invalidInput("Please enter a wallet name"))
+
+    private func saveGroup() {
+        guard !groupName.isEmpty else {
+            errorHandler.handle(.invalidInput("Please enter a group name"))
             return
         }
-        
+
         withAnimation {
             do {
-                if let walletToEdit = walletToEdit {
-                    try walletManager.updateWallet(
-                        walletToEdit,
-                        name: walletName,
+                if let groupToEdit = groupToEdit {
+                    try groupManager.updateGroup(
+                        groupToEdit,
+                        name: groupName,
                         gradientName: selectedGradientName,
                         icon: selectedSymbol
                     )
                 } else {
-                    let wallet = try walletManager.createWallet(
-                        name: walletName,
+                    let group = try groupManager.createGroup(
+                        name: groupName,
                         gradientName: selectedGradientName,
                         icon: selectedSymbol
                     )
                     let personManager = PersonManager(context: viewContext)
                     if let currentUser = try personManager.fetchCurrentUser() {
-                        wallet.addToMembers(currentUser)
+                        group.addToMembers(currentUser)
                         try viewContext.save()
                     }
                 }

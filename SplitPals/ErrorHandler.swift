@@ -15,7 +15,7 @@ enum AppError: LocalizedError {
     case coreDataDeleteFailed(Error)
     case invalidInput(String)
     case missingCurrency
-    case missingWallet
+    case missingGroup
     case missingPerson
 
     var errorDescription: String? {
@@ -30,8 +30,8 @@ enum AppError: LocalizedError {
             return message
         case .missingCurrency:
             return "Please select a currency"
-        case .missingWallet:
-            return "Please select a wallet"
+        case .missingGroup:
+            return "Please select a group"
         case .missingPerson:
             return "Please select a person"
         }
@@ -43,7 +43,7 @@ enum AppError: LocalizedError {
             return "Please try again. If the problem persists, restart the app."
         case .invalidInput:
             return "Please check your input and try again."
-        case .missingCurrency, .missingWallet, .missingPerson:
+        case .missingCurrency, .missingGroup, .missingPerson:
             return "Please make a selection and try again."
         }
     }

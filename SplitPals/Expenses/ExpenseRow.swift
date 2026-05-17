@@ -1,5 +1,5 @@
 //
-//  ReceiptRow.swift
+//  ExpenseRow.swift
 //  SplitPals
 //
 //  Created by Chris Choong on 15/6/25.
@@ -7,13 +7,13 @@
 
 import SwiftUI
 
-struct ReceiptRow: View {
-    @ObservedObject var receipt: Receipt
+struct ExpenseRow: View {
+    @ObservedObject var expense: Expense
     @EnvironmentObject var exchangeRateService: ExchangeRateService
 
     var body: some View {
         HStack {
-            Text(receipt.name ?? "")
+            Text(expense.name ?? "")
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formattedAmount())
@@ -27,17 +27,14 @@ struct ReceiptRow: View {
     }
 
     private func formattedAmount() -> String {
-        guard let currency = receipt.currency else {
-            return String(format: "%.2f", receipt.amount)
+        guard let currency = expense.currency else {
+            return String(format: "%.2f", expense.amount)
         }
-        return CurrencyFormatter.format(amount: receipt.amount, currency: currency)
+        return CurrencyFormatter.format(amount: expense.amount, currency: currency)
     }
 
     private func convertedAmount() -> String? {
-        guard let code = receipt.currency?.code else { return nil }
-        return exchangeRateService.formatConverted(amount: receipt.amount, from: code)
+        guard let code = expense.currency?.code else { return nil }
+        return exchangeRateService.formatConverted(amount: expense.amount, from: code)
     }
 }
-
-
-

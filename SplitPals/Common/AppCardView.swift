@@ -11,20 +11,20 @@ struct AppCardView: View {
     var gradientColors: [Color]
     var title: String
     var onEdit: (() -> Void)? = nil
-    var onAddReceipt: (() -> Void)? = nil
+    var onAddExpense: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
-    
+
     @ViewBuilder
     private func cardContextMenu() -> some View {
-        if let onEdit, let onAddReceipt, let onDelete {
+        if let onEdit, let onAddExpense, let onDelete {
             Button(action: onEdit) {
-                Label("Edit Wallet", systemImage: "pencil")
+                Label("Edit Group", systemImage: "pencil")
             }
-            Button(action: onAddReceipt) {
-                Label("Add Receipt", systemImage: "plus")
+            Button(action: onAddExpense) {
+                Label("Add Expense", systemImage: "plus")
             }
             Button(role: .destructive, action: onDelete) {
-                Label("Delete Wallet", systemImage: "trash")
+                Label("Delete Group", systemImage: "trash")
             }
         }
     }
@@ -56,7 +56,7 @@ struct AppCardView: View {
             .foregroundColor(.white)
         }
         // Attach contextMenu to the whole card
-        .if(onEdit != nil && onAddReceipt != nil && onDelete != nil) { view in
+        .if(onEdit != nil && onAddExpense != nil && onDelete != nil) { view in
             view.contextMenu { cardContextMenu() }
         }
     }
