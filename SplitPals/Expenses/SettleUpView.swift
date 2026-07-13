@@ -30,6 +30,13 @@ struct SettleUpView: View {
         let debtor: Person
         let creditor: Person
         let outstanding: Double
+        let currencyCode: String
+    }
+
+    /// A simplified transfer awaiting "mark as paid" confirmation.
+    struct PendingTransfer {
+        let transfer: DebtSimplifier.Transfer<Person>
+        let currencyCode: String
     }
 
     @ObservedObject var group: ExpenseGroup
@@ -45,9 +52,9 @@ struct SettleUpView: View {
     @AppStorage("settleUpUsesHomeCurrency") private var settleUpUsesHomeCurrency = false
 
     @State private var mode: SettleMode = .manual
-    @State private var selectedCurrency: String?
+    @State private var convertToHomeOverride: Bool?
     @State private var pendingPayment: PendingPayment?
-    @State private var transferToConfirm: DebtSimplifier.Transfer<Person>?
+    @State private var transferToConfirm: PendingTransfer?
 
     private var settlementManager: SettlementManager {
         SettlementManager(context: viewContext)
@@ -73,6 +80,10 @@ struct SettleUpView: View {
 
     // MARK: - Display currency
 
+    private var homeCurrency: String {
+        exchangeRateService.baseCurrency
+    }
+
     /// Currency codes used by the group's expenses, most used first.
     private var groupCurrencyCodes: [String] {
         var counts: [String: Int] = [:]
@@ -86,65 +97,125 @@ struct SettleUpView: View {
             .map(\.key)
     }
 
-    /// Group currencies plus the home currency, deduplicated.
-    private var currencyOptions: [String] {
-        var options = groupCurrencyCodes
-        if !options.contains(exchangeRateService.baseCurrency) {
-            options.append(exchangeRateService.baseCurrency)
+    /// Every currency with activity in the group: expense currencies plus any
+    /// codes payments were recorded in (e.g. while converting to home currency).
+    private var activeCurrencyCodes: [String] {
+        var codes = groupCurrencyCodes
+        for settlement in settlements {
+            if let code = settlement.currencyCode, !codes.contains(code) {
+                codes.append(code)
+            }
         }
-        return options
+        return codes.isEmpty ? [homeCurrency] : codes
     }
 
-    /// The currency balances are shown in: the user's pick, or the default
-    /// from Settings (home currency, or the group's most used currency).
-    private var displayCurrency: String {
-        selectedCurrency ?? (
-            settleUpUsesHomeCurrency
-                ? exchangeRateService.baseCurrency
-                : groupCurrencyCodes.first ?? exchangeRateService.baseCurrency
-        )
+    /// Whether balances are converted into the home currency instead of shown
+    /// per currency: the user's pick, or the default from Settings.
+    private var convertsToHome: Bool {
+        convertToHomeOverride ?? settleUpUsesHomeCurrency
     }
 
-    private func convertToDisplay(amount: Double, from code: String) -> Double? {
-        exchangeRateService.convert(amount: amount, from: code, to: displayCurrency)
+    /// Converting is pointless when the home currency is the only one in play.
+    private var offersHomeConversion: Bool {
+        activeCurrencyCodes != [homeCurrency]
+    }
+
+    private func convertToHomeCurrency(amount: Double, from code: String) -> Double? {
+        exchangeRateService.convert(amount: amount, from: code, to: homeCurrency)
+    }
+
+    private func splits(in code: String) -> [ExpenseSplit] {
+        splits.filter { ($0.expense?.currency?.code ?? homeCurrency) == code }
+    }
+
+    private func settlements(in code: String) -> [Settlement] {
+        settlements.filter { ($0.currencyCode ?? homeCurrency) == code }
     }
 
     // MARK: - Balances
 
-    private var balances: [(person: Person, balance: Double)] {
+    /// Net balances converted into the home currency.
+    private var homeBalances: [(person: Person, balance: Double)] {
         SettlementManager.netBalances(
             members: group.membersArray,
             splits: Array(splits),
             settlements: Array(settlements),
-            displayCurrency: displayCurrency,
-            convert: convertToDisplay
+            displayCurrency: homeCurrency,
+            convert: convertToHomeCurrency
         )
     }
 
-    private var pairwiseDebts: [DebtSimplifier.Transfer<Person>] {
-        SettlementManager.pairwiseDebts(
-            splits: Array(splits),
-            settlements: Array(settlements),
-            displayCurrency: displayCurrency,
-            convert: convertToDisplay
-        )
+    /// Per member, the nonzero balances in each of the group's currencies.
+    private var perCurrencyBalances: [(person: Person, amounts: [(code: String, balance: Double)])] {
+        var amounts: [Person: [(code: String, balance: Double)]] = [:]
+        for code in activeCurrencyCodes {
+            let entries = SettlementManager.netBalances(
+                members: group.membersArray,
+                splits: splits(in: code),
+                settlements: settlements(in: code),
+                displayCurrency: code,
+                convert: { amount, _ in amount }
+            )
+            let fractionDigits = CurrencyFormatter.fractionDigits(for: code)
+            for entry in entries where SplitCalculator.minorUnits(from: entry.balance, fractionDigits: fractionDigits) != 0 {
+                amounts[entry.person, default: []].append((code: code, balance: entry.balance))
+            }
+        }
+        return group.membersArray
+            .map { (person: $0, amounts: amounts[$0] ?? []) }
+            .sorted { ($0.person.name ?? "") < ($1.person.name ?? "") }
     }
 
-    private var suggestedTransfers: [DebtSimplifier.Transfer<Person>] {
-        SettlementManager.suggestedTransfers(
-            members: group.membersArray,
-            splits: Array(splits),
-            settlements: Array(settlements),
-            displayCurrency: displayCurrency,
-            convert: convertToDisplay
-        )
+    /// Outstanding debts grouped by the currency they're settled in. In home
+    /// conversion mode everything collapses into a single home-currency group.
+    private var debtsByCurrency: [(code: String, debts: [DebtSimplifier.Transfer<Person>])] {
+        if convertsToHome {
+            let debts = SettlementManager.pairwiseDebts(
+                splits: Array(splits),
+                settlements: Array(settlements),
+                displayCurrency: homeCurrency,
+                convert: convertToHomeCurrency
+            )
+            return debts.isEmpty ? [] : [(code: homeCurrency, debts: debts)]
+        }
+        return activeCurrencyCodes.compactMap { code in
+            let debts = SettlementManager.pairwiseDebts(
+                splits: splits(in: code),
+                settlements: settlements(in: code),
+                displayCurrency: code,
+                convert: { amount, _ in amount }
+            )
+            return debts.isEmpty ? nil : (code: code, debts: debts)
+        }
+    }
+
+    /// Suggested minimal transfers, grouped by currency like `debtsByCurrency`.
+    private var suggestedByCurrency: [(code: String, debts: [DebtSimplifier.Transfer<Person>])] {
+        if convertsToHome {
+            let transfers = SettlementManager.suggestedTransfers(
+                members: group.membersArray,
+                splits: Array(splits),
+                settlements: Array(settlements),
+                displayCurrency: homeCurrency,
+                convert: convertToHomeCurrency
+            )
+            return transfers.isEmpty ? [] : [(code: homeCurrency, debts: transfers)]
+        }
+        return activeCurrencyCodes.compactMap { code in
+            let transfers = SettlementManager.suggestedTransfers(
+                members: group.membersArray,
+                splits: splits(in: code),
+                settlements: settlements(in: code),
+                displayCurrency: code,
+                convert: { amount, _ in amount }
+            )
+            return transfers.isEmpty ? nil : (code: code, debts: transfers)
+        }
     }
 
     var body: some View {
         List {
             headerSection
-
-            modeSection
 
             balancesSection
 
@@ -154,51 +225,55 @@ struct SettleUpView: View {
         }
         .navigationTitle("Settle Up")
         .navigationBarTitleDisplayMode(.inline)
+        .contentMargins(.top, 8, for: .scrollContent)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                currencyMenu
+                if offersHomeConversion {
+                    currencyMenu
+                }
             }
         }
         .sheet(item: $pendingPayment) { payment in
             RecordPaymentSheet(
                 payment: payment,
-                currencyCode: displayCurrency,
+                currencyCode: payment.currencyCode,
                 onRecord: { amount in
-                    record(amount: amount, from: payment.debtor, to: payment.creditor)
+                    record(amount: amount, from: payment.debtor, to: payment.creditor, currencyCode: payment.currencyCode)
                 }
             )
         }
         .alert("Mark as Paid?", isPresented: Binding(
             get: { transferToConfirm != nil },
             set: { if !$0 { transferToConfirm = nil } }
-        ), presenting: transferToConfirm) { transfer in
+        ), presenting: transferToConfirm) { pending in
             Button("Mark as Paid") {
-                record(amount: transfer.amount, from: transfer.debtor, to: transfer.creditor)
+                record(
+                    amount: pending.transfer.amount,
+                    from: pending.transfer.debtor,
+                    to: pending.transfer.creditor,
+                    currencyCode: pending.currencyCode
+                )
             }
             Button("Cancel", role: .cancel) {}
-        } message: { transfer in
-            Text("\(transfer.debtor.name ?? "Someone") pays \(transfer.creditor.name ?? "someone") \(formatDisplay(transfer.amount)). This records the payment in full.")
+        } message: { pending in
+            Text("\(pending.transfer.debtor.name ?? "Someone") pays \(pending.transfer.creditor.name ?? "someone") \(format(pending.transfer.amount, code: pending.currencyCode)). This records the payment in full.")
         }
         .errorAlert(errorHandler: errorHandler)
     }
 
-    /// Picks the currency balances are displayed (and payments recorded) in.
+    /// Switches between showing each currency separately and converting
+    /// everything into the home currency.
     private var currencyMenu: some View {
         Menu {
-            Picker("Currency", selection: Binding(
-                get: { displayCurrency },
-                set: { selectedCurrency = $0 }
+            Picker("Currency display", selection: Binding(
+                get: { convertsToHome },
+                set: { convertToHomeOverride = $0 }
             )) {
-                ForEach(currencyOptions, id: \.self) { code in
-                    if code == exchangeRateService.baseCurrency {
-                        Text("\(code) (Home)").tag(code)
-                    } else {
-                        Text(code).tag(code)
-                    }
-                }
+                Text("Each Currency").tag(false)
+                Text("\(homeCurrency) (Home)").tag(true)
             }
         } label: {
-            Text(displayCurrency)
+            Text(convertsToHome ? homeCurrency : "All")
                 .font(.subheadline)
                 .bold()
         }
@@ -206,6 +281,13 @@ struct SettleUpView: View {
     }
 
     // MARK: - Sections
+
+    private var currencySubtitle: String {
+        if convertsToHome || activeCurrencyCodes.count == 1 {
+            return "Balances in \(convertsToHome ? homeCurrency : activeCurrencyCodes[0])"
+        }
+        return "Balances in each currency"
+    }
 
     private var headerSection: some View {
         Section {
@@ -229,24 +311,20 @@ struct SettleUpView: View {
                     .font(.title3)
                     .bold()
 
-                Text("Balances in \(displayCurrency)")
+                Text(currencySubtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+
+                Picker("Settle mode", selection: $mode) {
+                    ForEach(SettleMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.top, 12)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .listRowBackground(Color.clear)
-        }
-    }
-
-    private var modeSection: some View {
-        Section {
-            Picker("Settle mode", selection: $mode) {
-                ForEach(SettleMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
+            .padding(.top, 12)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
         } footer: {
@@ -258,16 +336,41 @@ struct SettleUpView: View {
 
     private var balancesSection: some View {
         Section("Balances") {
-            ForEach(balances, id: \.person) { entry in
-                HStack(spacing: 12) {
-                    memberAvatar(entry.person)
+            if convertsToHome {
+                ForEach(homeBalances, id: \.person) { entry in
+                    HStack(spacing: 12) {
+                        memberAvatar(entry.person)
 
-                    Text(entry.person.displayName)
-                        .font(.body)
+                        Text(entry.person.displayName)
+                            .font(.body)
 
-                    Spacer()
+                        Spacer()
 
-                    balanceLabel(entry.balance)
+                        balanceLabel(entry.balance, code: homeCurrency)
+                    }
+                }
+            } else {
+                ForEach(perCurrencyBalances, id: \.person) { entry in
+                    HStack(alignment: .top, spacing: 12) {
+                        memberAvatar(entry.person)
+
+                        Text(entry.person.displayName)
+                            .font(.body)
+
+                        Spacer()
+
+                        if entry.amounts.isEmpty {
+                            Text("Settled")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            VStack(alignment: .trailing, spacing: 2) {
+                                ForEach(entry.amounts, id: \.code) { amount in
+                                    balanceLabel(amount.balance, code: amount.code)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -275,27 +378,39 @@ struct SettleUpView: View {
 
     @ViewBuilder
     private var paymentsSection: some View {
-        let debts = mode == .manual ? pairwiseDebts : suggestedTransfers
+        let debtGroups = mode == .manual ? debtsByCurrency : suggestedByCurrency
 
         Section {
-            if debts.isEmpty {
+            if debtGroups.isEmpty {
                 ContentUnavailableView(
                     "All Settled Up!",
                     systemImage: "checkmark.seal.fill",
                     description: Text("Nobody owes anything in this group.")
                 )
             } else {
-                ForEach(Array(debts.enumerated()), id: \.offset) { _, debt in
-                    debtRow(debt)
+                ForEach(debtGroups, id: \.code) { entry in
+                    ForEach(Array(entry.debts.enumerated()), id: \.offset) { _, debt in
+                        debtRow(debt, code: entry.code)
+                    }
                 }
             }
         } header: {
             Text(mode == .manual ? "Who Owes Whom" : "Suggested Payments")
         } footer: {
-            if !debts.isEmpty {
-                Text(mode == .manual
-                     ? "Amounts are approximate, converted to \(displayCurrency). Tap a debt to record a full or partial payment."
-                     : "Amounts are approximate, converted to \(displayCurrency). Tap the checkmark once a payment has been made.")
+            if !debtGroups.isEmpty {
+                if convertsToHome {
+                    Text(mode == .manual
+                         ? "Amounts are approximate, converted to \(homeCurrency). Tap a debt to record a full or partial payment."
+                         : "Amounts are approximate, converted to \(homeCurrency). Tap the checkmark once a payment has been made.")
+                } else if activeCurrencyCodes.count > 1 {
+                    Text(mode == .manual
+                         ? "Each debt is settled in its own currency. Tap a debt to record a full or partial payment."
+                         : "Payments are suggested per currency. Tap the checkmark once a payment has been made.")
+                } else {
+                    Text(mode == .manual
+                         ? "Tap a debt to record a full or partial payment."
+                         : "Tap the checkmark once a payment has been made.")
+                }
             }
         }
     }
@@ -318,14 +433,14 @@ struct SettleUpView: View {
 
     // MARK: - Rows
 
-    private func debtRow(_ debt: DebtSimplifier.Transfer<Person>) -> some View {
+    private func debtRow(_ debt: DebtSimplifier.Transfer<Person>, code: String) -> some View {
         HStack(spacing: 12) {
             memberAvatar(debt.debtor)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(debt.debtor.displayName) pays \(debt.creditor.displayName)")
                     .font(.body)
-                Text(formatDisplay(debt.amount))
+                Text(format(debt.amount, code: code))
                     .font(.headline)
             }
 
@@ -336,10 +451,11 @@ struct SettleUpView: View {
                     pendingPayment = PendingPayment(
                         debtor: debt.debtor,
                         creditor: debt.creditor,
-                        outstanding: debt.amount
+                        outstanding: debt.amount,
+                        currencyCode: code
                     )
                 } label: {
-                    Image(systemName: "square.and.pencil.circle")
+                    Image(systemName: "square.and.pencil")
                         .font(.title2)
                         .foregroundStyle(.tint)
                 }
@@ -347,7 +463,7 @@ struct SettleUpView: View {
                 .accessibilityLabel("Record a payment")
             } else {
                 Button {
-                    transferToConfirm = debt
+                    transferToConfirm = PendingTransfer(transfer: debt, currencyCode: code)
                 } label: {
                     Image(systemName: "checkmark.circle")
                         .font(.title2)
@@ -364,7 +480,8 @@ struct SettleUpView: View {
                 pendingPayment = PendingPayment(
                     debtor: debt.debtor,
                     creditor: debt.creditor,
-                    outstanding: debt.amount
+                    outstanding: debt.amount,
+                    currencyCode: code
                 )
             }
         }
@@ -377,7 +494,7 @@ struct SettleUpView: View {
             HStack(spacing: 6) {
                 Text(CurrencyFormatter.format(
                     amount: settlement.amount,
-                    currencyCode: settlement.currencyCode ?? displayCurrency
+                    currencyCode: settlement.currencyCode ?? homeCurrency
                 ))
                 .font(.headline)
 
@@ -403,8 +520,8 @@ struct SettleUpView: View {
     }
 
     @ViewBuilder
-    private func balanceLabel(_ balance: Double) -> some View {
-        let fractionDigits = CurrencyFormatter.fractionDigits(for: displayCurrency)
+    private func balanceLabel(_ balance: Double, code: String) -> some View {
+        let fractionDigits = CurrencyFormatter.fractionDigits(for: code)
         let units = SplitCalculator.minorUnits(from: balance, fractionDigits: fractionDigits)
 
         if units == 0 {
@@ -412,7 +529,7 @@ struct SettleUpView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         } else {
-            Text(formatDisplay(balance, signed: true))
+            Text(format(balance, code: code, signed: true))
                 .font(.headline)
                 .foregroundStyle(units > 0 ? .green : .red)
         }
@@ -420,21 +537,21 @@ struct SettleUpView: View {
 
     // MARK: - Helpers
 
-    private func formatDisplay(_ amount: Double, signed: Bool = false) -> String {
-        let formatted = CurrencyFormatter.format(amount: abs(amount), currencyCode: displayCurrency)
+    private func format(_ amount: Double, code: String, signed: Bool = false) -> String {
+        let formatted = CurrencyFormatter.format(amount: abs(amount), currencyCode: code)
         if signed {
             return amount > 0 ? "+\(formatted)" : "−\(formatted)"
         }
         return formatted
     }
 
-    private func record(amount: Double, from debtor: Person, to creditor: Person) {
+    private func record(amount: Double, from debtor: Person, to creditor: Person, currencyCode: String) {
         do {
             try settlementManager.recordSettlement(
                 from: debtor,
                 to: creditor,
                 amount: amount,
-                currencyCode: displayCurrency,
+                currencyCode: currencyCode,
                 in: group
             )
         } catch {

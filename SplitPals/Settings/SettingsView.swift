@@ -48,15 +48,15 @@ struct SettingsView: View {
 
                 Section {
                     Picker("Settle Up In", selection: $settleUpUsesHomeCurrency) {
-                        Text("Group's Currency").tag(false)
+                        Text("Each Currency").tag(false)
                         Text("Home Currency").tag(true)
                     }
                 } header: {
                     Text("Settle Up")
                 } footer: {
                     Text(settleUpUsesHomeCurrency
-                         ? "Settle up starts in your home currency, \(exchangeRateService.baseCurrency). You can still switch currencies on the settle up screen."
-                         : "Settle up starts in the currency the group's expenses use most. You can still switch currencies on the settle up screen.")
+                         ? "Settle up converts everything into your home currency, \(exchangeRateService.baseCurrency). You can still switch on the settle up screen."
+                         : "Settle up shows balances separately in each currency the group used. You can still switch on the settle up screen.")
                 }
             }
             .navigationTitle("Settings")
