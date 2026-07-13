@@ -13,7 +13,14 @@ struct ExpenseRow: View {
 
     var body: some View {
         HStack {
-            Text(expense.name ?? "")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(expense.name ?? "")
+                if let subtitle = splitSubtitle() {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(formattedAmount())
@@ -24,6 +31,21 @@ struct ExpenseRow: View {
                 }
             }
         }
+    }
+
+    private func splitSubtitle() -> String? {
+        guard let payer = expense.paidBy else { return nil }
+        let payerName = payer.name ?? "Unknown"
+        let participants = expense.participantsArray
+
+        if participants.count > 1 {
+            return "Paid by \(payerName) · Split \(participants.count) ways"
+        }
+        // A single participant who isn't the payer: paid on their behalf.
+        if let only = participants.first, only != payer {
+            return "Paid by \(payerName) · For \(only.name ?? "Unknown")"
+        }
+        return "Paid by \(payerName)"
     }
 
     private func formattedAmount() -> String {

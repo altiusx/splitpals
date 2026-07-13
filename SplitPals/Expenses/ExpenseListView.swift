@@ -96,11 +96,17 @@ struct ExpenseListView: View {
         }
         .navigationTitle(group.name ?? "Expenses")
         .toolbar {
+            NavigationLink(destination: SettleUpView(group: group)) {
+                Image(systemName: "arrow.left.arrow.right")
+            }
+            .accessibilityLabel("Settle Up")
+
             Button(action: {
                 activeSheet = .add
             }) {
                 Image(systemName: "plus")
             }
+            .accessibilityLabel("Add Expense")
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {

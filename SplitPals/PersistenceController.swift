@@ -7,35 +7,54 @@
 import CoreData
 import os.log
 
+/// The app's persistent container type.
+///
+/// Swap this to `NSPersistentCloudKitContainer` when iCloud sync is enabled —
+/// the rest of the stack is already configured with CloudKit-compatible
+/// patterns (history tracking, remote change notifications, no uniqueness
+/// constraints, optional attributes with defaults).
+typealias AppPersistentContainer = NSPersistentContainer
+
 class PersistenceController {
     static let shared = PersistenceController()
-    let container: NSPersistentContainer
-    
+    let container: AppPersistentContainer
+
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "SplitPals", category: "persistence")
-    
+
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "SplitPalsModel")
-        
+        container = AppPersistentContainer(name: "SplitPalsModel")
+
         if inMemory {
             container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
         }
-        
+
+        // CloudKit-compatible store options. NSPersistentCloudKitContainer
+        // requires persistent history tracking; enabling it now keeps the
+        // local store ready for the swap.
+        if let description = container.persistentStoreDescriptions.first {
+            description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+            description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+            description.shouldMigrateStoreAutomatically = true
+            description.shouldInferMappingModelAutomatically = true
+        }
+
         // Configure for better performance and merge behavior
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
-        
+
         container.loadPersistentStores { description, error in
             if let error = error {
                 // Log the error before crashing in debug, or handle gracefully in production
                 self.logger.critical("Core Data failed to load: \(error.localizedDescription)")
                 fatalError("Core Data error: \(error.localizedDescription)")
             }
-            
+
             self.logger.info("Core Data store loaded successfully")
             self.seedCurrencies(context: self.container.viewContext)
+            self.backfillIdentifiers(context: self.container.viewContext)
         }
     }
-    
+
     private func seedCurrencies(context: NSManagedObjectContext) {
         let defaultCurrencies = [
             ("AUD", "A$", "Australian Dollar"),
@@ -77,6 +96,7 @@ class PersistenceController {
         for (code, symbol, name) in defaultCurrencies {
             if existingByCode[code] == nil {
                 let currency = Currency(context: context)
+                currency.id = UUID()
                 currency.code = code
                 currency.symbol = symbol
                 currency.name = name
@@ -103,6 +123,34 @@ class PersistenceController {
             logger.error("Failed to update currencies: \(error.localizedDescription)")
         }
     }
-    
-    
+
+    /// Assigns a UUID to any row migrated from an older model version where
+    /// the `id` attribute did not exist yet.
+    private func backfillIdentifiers(context: NSManagedObjectContext) {
+        let entityNames = ["Currency", "Expense", "ExpenseGroup", "ExpenseSplit", "Person"]
+        var backfilledCount = 0
+
+        for entityName in entityNames {
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            request.predicate = NSPredicate(format: "id == nil")
+            do {
+                let objects = try context.fetch(request)
+                for object in objects {
+                    object.setValue(UUID(), forKey: "id")
+                    backfilledCount += 1
+                }
+            } catch {
+                logger.error("Failed to backfill ids for \(entityName): \(error.localizedDescription)")
+            }
+        }
+
+        guard backfilledCount > 0 else { return }
+
+        do {
+            try context.save()
+            logger.info("Backfilled \(backfilledCount) missing ids")
+        } catch {
+            logger.error("Failed to save backfilled ids: \(error.localizedDescription)")
+        }
+    }
 }

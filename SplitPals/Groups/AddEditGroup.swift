@@ -17,10 +17,16 @@ struct AddEditGroup: View {
         GroupManager(context: viewContext)
     }
 
+    @FetchRequest(
+        entity: Person.entity(),
+        sortDescriptors: [NSSortDescriptor(key: "name", ascending: true)]
+    ) var allPersons: FetchedResults<Person>
+
     // Inputs for group creation
     @State private var groupName: String = ""
     @State private var selectedGradientName: String = "Sunset"
     @State private var selectedSymbol: String = "iphone"
+    @State private var selectedMembers: Set<Person> = []
 
     // editing group
     var groupToEdit: ExpenseGroup? = nil
@@ -53,6 +59,15 @@ struct AddEditGroup: View {
                 Section(header: Text("Name")) {
                     TextField("Group Name", text: $groupName)
                 }
+                Section {
+                    ForEach(allPersons, id: \.self) { person in
+                        memberRow(person)
+                    }
+                } header: {
+                    Text("Members")
+                } footer: {
+                    Text("Expenses can be split between the members of this group.")
+                }
                 Section(header: Text("Color")) {
                     GradientColorPicker(
                         selectedGradientName: $selectedGradientName,
@@ -67,6 +82,7 @@ struct AddEditGroup: View {
                 }
             }
             .navigationTitle(groupToEdit == nil ? "Add Group" : "Edit Group")
+            .onAppear(perform: configureMembers)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
@@ -93,6 +109,43 @@ struct AddEditGroup: View {
         _selectedSymbol = State(initialValue: groupToEdit?.icon ?? "iphone")
     }
 
+    @ViewBuilder
+    private func memberRow(_ person: Person) -> some View {
+        let isSelected = selectedMembers.contains(person)
+
+        HStack(spacing: 12) {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+
+            Image(systemName: person.icon ?? "person.crop.circle")
+                .foregroundStyle(.secondary)
+
+            Text(person.isCurrentUser ? "\(person.name ?? "Me") (Me)" : (person.name ?? "Unknown"))
+
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // The current user is always part of their own groups.
+            guard !person.isCurrentUser else { return }
+            if isSelected {
+                selectedMembers.remove(person)
+            } else {
+                selectedMembers.insert(person)
+            }
+        }
+    }
+
+    private func configureMembers() {
+        if let groupToEdit {
+            selectedMembers = Set(groupToEdit.membersArray)
+        }
+        if let currentUser = try? AuthService.shared.currentUser(in: viewContext) {
+            selectedMembers.insert(currentUser)
+        }
+    }
+
     private func saveGroup() {
         guard !groupName.isEmpty else {
             errorHandler.handle(.invalidInput("Please enter a group name"))
@@ -101,6 +154,7 @@ struct AddEditGroup: View {
 
         withAnimation {
             do {
+                let group: ExpenseGroup
                 if let groupToEdit = groupToEdit {
                     try groupManager.updateGroup(
                         groupToEdit,
@@ -108,18 +162,20 @@ struct AddEditGroup: View {
                         gradientName: selectedGradientName,
                         icon: selectedSymbol
                     )
+                    group = groupToEdit
                 } else {
-                    let group = try groupManager.createGroup(
+                    group = try groupManager.createGroup(
                         name: groupName,
                         gradientName: selectedGradientName,
                         icon: selectedSymbol
                     )
-                    let personManager = PersonManager(context: viewContext)
-                    if let currentUser = try personManager.fetchCurrentUser() {
-                        group.addToMembers(currentUser)
-                        try viewContext.save()
-                    }
                 }
+
+                var members = selectedMembers
+                if let currentUser = try AuthService.shared.currentUser(in: viewContext) {
+                    members.insert(currentUser)
+                }
+                try groupManager.updateMembers(group, members: Array(members))
                 onSave?()
                 dismiss()
             } catch {

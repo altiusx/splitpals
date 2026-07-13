@@ -10,19 +10,24 @@ import Foundation
 
 @MainActor
 class CoreDataManager: ObservableObject {
-    let container: NSPersistentContainer
-    
+    let container: AppPersistentContainer
+
     var viewContext: NSManagedObjectContext {
         container.viewContext
     }
-    
+
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "SplitPalsModel")
-        
+        container = AppPersistentContainer(name: "SplitPalsModel")
+
         if inMemory {
             container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
         }
-        
+
+        if let description = container.persistentStoreDescriptions.first {
+            description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+            description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        }
+
         // Configure context for better performance
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump

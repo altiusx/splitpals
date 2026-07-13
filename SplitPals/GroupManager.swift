@@ -20,6 +20,7 @@ class GroupManager {
 
     func createGroup(name: String, gradientName: String, icon: String) throws -> ExpenseGroup {
         let group = ExpenseGroup(context: context)
+        group.id = UUID()
         group.name = name
         group.gradientName = gradientName
         group.icon = icon
@@ -36,6 +37,13 @@ class GroupManager {
         group.gradientName = gradientName
         group.icon = icon
 
+        try context.save()
+    }
+
+    // MARK: - Members
+
+    func updateMembers(_ group: ExpenseGroup, members: [Person]) throws {
+        group.members = NSSet(array: members)
         try context.save()
     }
 
