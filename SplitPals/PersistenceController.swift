@@ -127,7 +127,7 @@ class PersistenceController {
     /// Assigns a UUID to any row migrated from an older model version where
     /// the `id` attribute did not exist yet.
     private func backfillIdentifiers(context: NSManagedObjectContext) {
-        let entityNames = ["Currency", "Expense", "ExpenseGroup", "ExpenseSplit", "Person"]
+        let entityNames = ["Currency", "Expense", "ExpenseGroup", "ExpenseSplit", "Person", "Settlement"]
         var backfilledCount = 0
 
         for entityName in entityNames {

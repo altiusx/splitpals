@@ -66,6 +66,7 @@ final class SplitFlowUITests: XCTestCase {
         // Open the group
         let groupCard = app.staticTexts[groupName]
         XCTAssertTrue(groupCard.waitForExistence(timeout: 3))
+        attach(app, name: "03b-group-card")
         groupCard.tap()
 
         // Add an equal-split expense of $10 paid by me
@@ -80,7 +81,8 @@ final class SplitFlowUITests: XCTestCase {
         descriptionField.tap()
         descriptionField.typeText("Dinner\n")
 
-        app.staticTexts["$0.00"].tap()
+        // Amount display, matched independently of the currency symbol
+        app.staticTexts.matching(NSPredicate(format: "label ENDSWITH '0.00'")).firstMatch.tap()
         app.typeText("1000")
 
         // Probe: exact split with nothing assigned must disable Save
@@ -100,16 +102,42 @@ final class SplitFlowUITests: XCTestCase {
         XCTAssertTrue(caption.waitForExistence(timeout: 3))
         attach(app, name: "05-expense-list")
 
-        // Settle Up: both friends owe me
+        // Settle Up opens in Manual mode: both friends owe me
         app.buttons["Settle Up"].tap()
         let bobPays = app.staticTexts["\(bob) pays Chris (Me)"]
         let carolPays = app.staticTexts["\(carol) pays Chris (Me)"]
         XCTAssertTrue(bobPays.waitForExistence(timeout: 3))
         XCTAssertTrue(carolPays.exists)
-        XCTAssertTrue(app.staticTexts["$3.34"].exists || app.staticTexts["$3.33"].exists)
-        attach(app, name: "06-settle-up")
+        XCTAssertTrue(amountLabel(app, "3.34").exists || amountLabel(app, "3.33").exists)
+        attach(app, name: "06-settle-up-manual")
 
-        // Mark the first payment as done
+        // Record a partial payment of $2 for the first debt
+        app.buttons["Record a payment"].firstMatch.tap()
+        let amountField = app.textFields["Amount"]
+        XCTAssertTrue(amountField.waitForExistence(timeout: 3))
+        amountField.tap()
+        let prefilled = (amountField.value as? String) ?? ""
+        amountField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: prefilled.count + 1))
+        amountField.typeText("2")
+        attach(app, name: "07-record-payment")
+        app.buttons["Record"].tap()
+
+        // The debt shrinks by $2 and both debts remain
+        XCTAssertTrue(amountLabel(app, "1.34").waitForExistence(timeout: 3) || amountLabel(app, "1.33").exists)
+        XCTAssertTrue(bobPays.exists && carolPays.exists, "Partial payment must not clear either debt")
+
+        // The payment appears in the history section at the bottom
+        app.swipeUp()
+        XCTAssertTrue(amountLabel(app, "2.00").waitForExistence(timeout: 3), "Recorded payment should be listed")
+        attach(app, name: "08-after-partial")
+        app.swipeDown()
+
+        // One tap switches to the simplified (greedy) suggestions
+        let simplifiedSegment = app.buttons["Simplified"]
+        XCTAssertTrue(simplifiedSegment.waitForExistence(timeout: 3))
+        simplifiedSegment.tap()
+
+        // Mark the first suggested payment as done in full
         app.buttons["Mark payment as done"].firstMatch.tap()
         let alert = app.alerts["Mark as Paid?"]
         XCTAssertTrue(alert.waitForExistence(timeout: 3))
@@ -118,7 +146,12 @@ final class SplitFlowUITests: XCTestCase {
         // One transfer remains, the other person's row is gone
         XCTAssertTrue(carolPays.waitForExistence(timeout: 3) || bobPays.exists)
         XCTAssertFalse(bobPays.exists && carolPays.exists, "Settled transfer should disappear")
-        attach(app, name: "07-after-settle")
+        attach(app, name: "09-after-settle")
+    }
+
+    /// Matches a formatted amount regardless of the currency symbol (e.g. "$3.34" or "S$3.34").
+    private func amountLabel(_ app: XCUIApplication, _ digits: String) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", digits)).firstMatch
     }
 
     private func attach(_ app: XCUIApplication, name: String) {

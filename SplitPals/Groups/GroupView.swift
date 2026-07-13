@@ -111,6 +111,7 @@ struct GroupView: View {
                         icon: group.icon ?? "creditcard",
                         gradientColors: colorForGroup(group),
                         title: group.name ?? "Uncategorised Expenses",
+                        memberInitials: group.membersArray.map(\.initial),
                         onEdit: { activeSheet = .editGroup(group) },
                         onAddExpense: { activeSheet = .addExpense(group) },
                         onDelete: { groupToDelete = group; showDeletePrompt = true }

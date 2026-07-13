@@ -27,6 +27,16 @@
         <attribute name="name" optional="YES" attributeType="String"/>
         <relationship name="expenses" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Expense" inverseName="group" inverseEntity="Expense" renameIdentifier="receipt"/>
         <relationship name="members" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Person" inverseName="groups" inverseEntity="Person"/>
+        <relationship name="settlements" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Settlement" inverseName="group" inverseEntity="Settlement"/>
+    </entity>
+    <entity name="Settlement" representedClassName="Settlement" syncable="YES" codeGenerationType="class">
+        <attribute name="amount" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="currencyCode" optional="YES" attributeType="String"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="group" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ExpenseGroup" inverseName="settlements" inverseEntity="ExpenseGroup"/>
+        <relationship name="payee" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Person" inverseName="settlementsReceived" inverseEntity="Person"/>
+        <relationship name="payer" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Person" inverseName="settlementsPaid" inverseEntity="Person"/>
     </entity>
     <entity name="ExpenseSplit" representedClassName="ExpenseSplit" syncable="YES" codeGenerationType="class">
         <attribute name="amount" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
@@ -45,5 +55,7 @@
         <relationship name="expenseSplits" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="ExpenseSplit" inverseName="person" inverseEntity="ExpenseSplit"/>
         <relationship name="expensesPaid" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Expense" inverseName="paidBy" inverseEntity="Expense"/>
         <relationship name="groups" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="ExpenseGroup" inverseName="members" inverseEntity="ExpenseGroup"/>
+        <relationship name="settlementsPaid" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Settlement" inverseName="payer" inverseEntity="Settlement"/>
+        <relationship name="settlementsReceived" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Settlement" inverseName="payee" inverseEntity="Settlement"/>
     </entity>
 </model>

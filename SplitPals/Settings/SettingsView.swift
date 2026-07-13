@@ -10,6 +10,7 @@ import CoreData
 
 struct SettingsView: View {
     @AppStorage("forceDarkMode") private var forceDarkMode = false
+    @AppStorage("settleUpUsesHomeCurrency") private var settleUpUsesHomeCurrency = false
     @EnvironmentObject var exchangeRateService: ExchangeRateService
 
     @FetchRequest(
@@ -43,6 +44,19 @@ struct SettingsView: View {
                     Text("Currency")
                 } footer: {
                     Text("Receipts in other currencies will show converted amounts in \(exchangeRateService.baseCurrency).")
+                }
+
+                Section {
+                    Picker("Settle Up In", selection: $settleUpUsesHomeCurrency) {
+                        Text("Group's Currency").tag(false)
+                        Text("Home Currency").tag(true)
+                    }
+                } header: {
+                    Text("Settle Up")
+                } footer: {
+                    Text(settleUpUsesHomeCurrency
+                         ? "Settle up starts in your home currency, \(exchangeRateService.baseCurrency). You can still switch currencies on the settle up screen."
+                         : "Settle up starts in the currency the group's expenses use most. You can still switch currencies on the settle up screen.")
                 }
             }
             .navigationTitle("Settings")

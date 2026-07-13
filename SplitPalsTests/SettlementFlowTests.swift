@@ -47,7 +47,24 @@ struct SettlementFlowTests {
         return SettlementManager.netBalances(
             members: members,
             splits: splits,
-            baseCurrency: "SGD",
+            settlements: settlements(for: group),
+            displayCurrency: "SGD",
+            convert: { amount, _ in amount }
+        )
+    }
+
+    private func settlements(for group: ExpenseGroup) -> [Settlement] {
+        (group.settlements as? Set<Settlement> ?? []).sorted {
+            ($0.createdAt ?? .distantPast) < ($1.createdAt ?? .distantPast)
+        }
+    }
+
+    private func pairwiseDebts(for group: ExpenseGroup) -> [DebtSimplifier.Transfer<Person>] {
+        let splits = group.expensesArray.flatMap(\.splitsArray)
+        return SettlementManager.pairwiseDebts(
+            splits: splits,
+            settlements: settlements(for: group),
+            displayCurrency: "SGD",
             convert: { amount, _ in amount }
         )
     }
@@ -156,6 +173,102 @@ struct SettlementFlowTests {
         let result = balances(for: stack.group, members: [stack.chris, stack.raymond])
         #expect(result.first { $0.person == stack.chris }?.balance == 100)
         #expect(result.first { $0.person == stack.raymond }?.balance == -100)
+    }
+
+    /// A manual partial payment reduces the debt without clearing it.
+    @Test func partialSettlementReducesBalance() throws {
+        let stack = try makeStack()
+        let expenseManager = ExpenseManager(context: stack.context)
+        let settlementManager = SettlementManager(context: stack.context)
+
+        _ = try expenseManager.createExpense(
+            name: "Dinner", amount: 100, currency: stack.sgd, group: stack.group,
+            paidBy: stack.chris, splitType: .equal,
+            participants: [stack.chris, stack.raymond], exactAmounts: nil
+        )
+
+        try settlementManager.recordSettlement(
+            from: stack.raymond, to: stack.chris,
+            amount: 20, currencyCode: "SGD", in: stack.group
+        )
+
+        let result = balances(for: stack.group, members: [stack.chris, stack.raymond])
+        #expect(result.first { $0.person == stack.chris }?.balance == 30)
+        #expect(result.first { $0.person == stack.raymond }?.balance == -30)
+
+        let debts = pairwiseDebts(for: stack.group)
+        #expect(debts.count == 1)
+        #expect(debts.first?.debtor == stack.raymond)
+        #expect(debts.first?.creditor == stack.chris)
+        #expect(debts.first?.amount == 30)
+    }
+
+    /// Paying the full outstanding amount settles the pair completely.
+    @Test func fullSettlementClearsBalance() throws {
+        let stack = try makeStack()
+        let expenseManager = ExpenseManager(context: stack.context)
+        let settlementManager = SettlementManager(context: stack.context)
+
+        _ = try expenseManager.createExpense(
+            name: "Dinner", amount: 100, currency: stack.sgd, group: stack.group,
+            paidBy: stack.chris, splitType: .equal,
+            participants: [stack.chris, stack.raymond], exactAmounts: nil
+        )
+
+        try settlementManager.recordSettlement(
+            from: stack.raymond, to: stack.chris,
+            amount: 50, currencyCode: "SGD", in: stack.group
+        )
+
+        let result = balances(for: stack.group, members: [stack.chris, stack.raymond])
+        #expect(result.allSatisfy { $0.balance == 0 })
+        #expect(pairwiseDebts(for: stack.group).isEmpty)
+    }
+
+    /// Deleting a recorded payment restores the debt it had settled.
+    @Test func deletingSettlementRestoresDebt() throws {
+        let stack = try makeStack()
+        let expenseManager = ExpenseManager(context: stack.context)
+        let settlementManager = SettlementManager(context: stack.context)
+
+        _ = try expenseManager.createExpense(
+            name: "Dinner", amount: 100, currency: stack.sgd, group: stack.group,
+            paidBy: stack.chris, splitType: .equal,
+            participants: [stack.chris, stack.raymond], exactAmounts: nil
+        )
+
+        let settlement = try settlementManager.recordSettlement(
+            from: stack.raymond, to: stack.chris,
+            amount: 50, currencyCode: "SGD", in: stack.group
+        )
+        try settlementManager.deleteSettlement(settlement)
+
+        let result = balances(for: stack.group, members: [stack.chris, stack.raymond])
+        #expect(result.first { $0.person == stack.raymond }?.balance == -50)
+    }
+
+    /// Overpaying flips the direction of the pairwise debt.
+    @Test func overpaymentFlipsPairwiseDebt() throws {
+        let stack = try makeStack()
+        let expenseManager = ExpenseManager(context: stack.context)
+        let settlementManager = SettlementManager(context: stack.context)
+
+        _ = try expenseManager.createExpense(
+            name: "Dinner", amount: 100, currency: stack.sgd, group: stack.group,
+            paidBy: stack.chris, splitType: .equal,
+            participants: [stack.chris, stack.raymond], exactAmounts: nil
+        )
+
+        try settlementManager.recordSettlement(
+            from: stack.raymond, to: stack.chris,
+            amount: 80, currencyCode: "SGD", in: stack.group
+        )
+
+        let debts = pairwiseDebts(for: stack.group)
+        #expect(debts.count == 1)
+        #expect(debts.first?.debtor == stack.chris)
+        #expect(debts.first?.creditor == stack.raymond)
+        #expect(debts.first?.amount == 30)
     }
 
     /// Editing an expense to fix the payer must correct the balances.

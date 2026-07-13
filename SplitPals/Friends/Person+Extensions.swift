@@ -15,4 +15,11 @@ extension Person {
         }
         return name ?? "Unknown"
     }
+
+    /// First letter of the name, for compact avatar bubbles (e.g. "R" for Raymond).
+    var initial: String {
+        let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else { return "?" }
+        return String(first).uppercased()
+    }
 }
