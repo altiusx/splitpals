@@ -92,7 +92,7 @@ class ExpenseManager {
 
     func fetchExpenses(for group: ExpenseGroup?) throws -> [Expense] {
         let request = Expense.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: "timestamp", ascending: false)]
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \Expense.timestamp, ascending: false)]
 
         if let group = group {
             request.predicate = NSPredicate(format: "group == %@", group)

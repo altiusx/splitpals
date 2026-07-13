@@ -74,6 +74,9 @@ class ExchangeRateService: ObservableObject {
         }
     }
 
+    /// Converts an amount into the target currency (the base currency when
+    /// nil). Returns nil when the currencies are the same or no rate is
+    /// available, so callers can decide how to present unconverted amounts.
     func convert(amount: Double, from sourceCurrencyCode: String, to targetCurrencyCode: String? = nil) -> Double? {
         let target = targetCurrencyCode ?? baseCurrency
         if sourceCurrencyCode == target { return nil }
@@ -87,13 +90,11 @@ class ExchangeRateService: ObservableObject {
         return amount * (targetRate / sourceRate)
     }
 
+    /// The amount converted to the base currency and formatted for display,
+    /// or nil when the amount is already in the base currency.
     func formatConverted(amount: Double, from sourceCurrencyCode: String) -> String? {
         guard let converted = convert(amount: amount, from: sourceCurrencyCode) else { return nil }
-
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = baseCurrency
-        return formatter.string(from: NSNumber(value: converted))
+        return CurrencyFormatter.format(amount: converted, currencyCode: baseCurrency)
     }
 
     // MARK: - Cache

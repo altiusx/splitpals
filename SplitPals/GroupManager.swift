@@ -58,7 +58,7 @@ class GroupManager {
 
     func fetchAllGroups() throws -> [ExpenseGroup] {
         let request = ExpenseGroup.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: true)]
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \ExpenseGroup.createdAt, ascending: true)]
         return try context.fetch(request)
     }
 }

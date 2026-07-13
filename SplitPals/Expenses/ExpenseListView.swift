@@ -25,7 +25,7 @@ struct ExpenseListView: View {
         self.group = group
         _expenses = FetchRequest(
             entity: Expense.entity(),
-            sortDescriptors: [NSSortDescriptor(key: "timestamp", ascending: false)],
+            sortDescriptors: [NSSortDescriptor(keyPath: \Expense.timestamp, ascending: false)],
             predicate: NSPredicate(format: "group == %@", group)
         )
     }
@@ -44,10 +44,7 @@ struct ExpenseListView: View {
     }
 
     private var formattedTotal: String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = exchangeRateService.baseCurrency
-        return "~\(formatter.string(from: NSNumber(value: convertedTotal)) ?? "")"
+        "~\(CurrencyFormatter.format(amount: convertedTotal, currencyCode: exchangeRateService.baseCurrency))"
     }
 
     private var participantCount: Int {
@@ -129,7 +126,7 @@ struct ExpenseListView: View {
             do {
                 try expenseManager.deleteExpense(expense)
             } catch {
-                errorHandler.handleCoreDataError(error, operation: "delete")
+                errorHandler.handleCoreDataError(error, operation: .delete)
             }
         }
     }

@@ -13,7 +13,7 @@ struct FriendsView: View {
     
     @FetchRequest(
         entity: Person.entity(),
-        sortDescriptors: [NSSortDescriptor(key: "name", ascending: true)],
+        sortDescriptors: [NSSortDescriptor(keyPath: \Person.name, ascending: true)],
         predicate: NSPredicate(format: "isCurrentUser == NO")
     ) var friends: FetchedResults<Person>
     
@@ -111,7 +111,7 @@ struct FriendsView: View {
             do {
                 try personManager.deletePerson(friend)
             } catch {
-                errorHandler.handleCoreDataError(error, operation: "delete")
+                errorHandler.handleCoreDataError(error, operation: .delete)
             }
         }
     }

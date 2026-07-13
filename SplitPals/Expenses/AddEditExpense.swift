@@ -59,8 +59,7 @@ struct AddEditExpense: View {
     }
 
     var amount: Double {
-        let divisor = pow(10.0, Double(fractionDigits))
-        return (Double(Int(rawAmount) ?? 0)) / divisor
+        CurrencyFormatter.convertRawAmount(rawAmount, fractionDigits: fractionDigits) ?? 0
     }
 
     var formattedAmount: String {
@@ -106,8 +105,8 @@ struct AddEditExpense: View {
     }
 
     var body: some View {
-        NavigationView{
-            Form{
+        NavigationStack {
+            Form {
                 Section(header: Text("Details")){
                     TextField("Description", text: $name)
 
@@ -228,7 +227,7 @@ struct AddEditExpense: View {
                 .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(displayName(for: member))
+                Text(member.displayName)
                 if isPayer {
                     Text("Paid")
                         .font(.caption)
@@ -258,7 +257,7 @@ struct AddEditExpense: View {
                     .foregroundStyle(isPayer ? Color.green : Color.secondary)
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(isPayer ? "\(displayName(for: member)) paid" : "Mark \(displayName(for: member)) as the payer")
+            .accessibilityLabel(isPayer ? "\(member.displayName) paid" : "Mark \(member.displayName) as the payer")
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -281,7 +280,7 @@ struct AddEditExpense: View {
             }
 
             if let payer = paidBy, !participants.isEmpty {
-                Text("\(displayName(for: payer)) pays \(formattedAmount) for \(participantSummary).")
+                Text("\(payer.displayName) pays \(formattedAmount) for \(participantSummary).")
                     .fontWeight(.medium)
             }
 
@@ -321,13 +320,6 @@ struct AddEditExpense: View {
         } else {
             participants.insert(member)
         }
-    }
-
-    private func displayName(for member: Person) -> String {
-        if member.isCurrentUser {
-            return "\(member.name ?? "Me") (Me)"
-        }
-        return member.name ?? "Unknown"
     }
 
     // MARK: - State setup
@@ -457,7 +449,7 @@ struct AddEditExpense: View {
         } catch let error as AppError {
             errorHandler.handle(error)
         } catch {
-            errorHandler.handleCoreDataError(error, operation: "save")
+            errorHandler.handleCoreDataError(error, operation: .save)
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
         }

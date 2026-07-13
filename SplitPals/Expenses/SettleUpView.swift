@@ -27,13 +27,13 @@ struct SettleUpView: View {
         self.group = group
         _splits = FetchRequest(
             entity: ExpenseSplit.entity(),
-            sortDescriptors: [NSSortDescriptor(key: "id", ascending: true)],
+            sortDescriptors: [NSSortDescriptor(keyPath: \ExpenseSplit.id, ascending: true)],
             predicate: NSPredicate(format: "expense.group == %@", group)
         )
     }
 
     private var gradientColors: [Color] {
-        cardGradients.first(where: { $0.name == group.gradientName })?.colors ?? [Color.blue, Color.purple]
+        AppCardGradient.colors(named: group.gradientName)
     }
 
     private var balances: [(person: Person, balance: Double)] {
@@ -122,7 +122,7 @@ struct SettleUpView: View {
                 HStack(spacing: 12) {
                     memberAvatar(entry.person)
 
-                    Text(displayName(for: entry.person))
+                    Text(entry.person.displayName)
                         .font(.body)
 
                     Spacer()
@@ -163,7 +163,7 @@ struct SettleUpView: View {
             memberAvatar(transfer.debtor)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(displayName(for: transfer.debtor)) pays \(displayName(for: transfer.creditor))")
+                Text("\(transfer.debtor.displayName) pays \(transfer.creditor.displayName)")
                     .font(.body)
                 Text(formatBase(transfer.amount))
                     .font(.headline)
@@ -218,15 +218,8 @@ struct SettleUpView: View {
 
     // MARK: - Helpers
 
-    private func displayName(for person: Person) -> String {
-        person.isCurrentUser ? "\(person.name ?? "Me") (Me)" : (person.name ?? "Unknown")
-    }
-
     private func formatBase(_ amount: Double, signed: Bool = false) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = exchangeRateService.baseCurrency
-        let formatted = formatter.string(from: NSNumber(value: abs(amount))) ?? ""
+        let formatted = CurrencyFormatter.format(amount: abs(amount), currencyCode: exchangeRateService.baseCurrency)
         if signed {
             return amount > 0 ? "+\(formatted)" : "−\(formatted)"
         }
@@ -241,7 +234,7 @@ struct SettleUpView: View {
                 in: group
             )
         } catch {
-            errorHandler.handleCoreDataError(error, operation: "save")
+            errorHandler.handleCoreDataError(error, operation: .save)
         }
     }
 }

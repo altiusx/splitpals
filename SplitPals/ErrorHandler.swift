@@ -9,6 +9,13 @@ import Foundation
 import SwiftUI
 import os.log
 
+/// The Core Data operation that failed, used to pick a user-facing message.
+enum CoreDataOperation {
+    case save
+    case fetch
+    case delete
+}
+
 enum AppError: LocalizedError {
     case coreDataSaveFailed(Error)
     case coreDataFetchFailed(Error)
@@ -62,21 +69,19 @@ class ErrorHandler: ObservableObject {
         showError = true
     }
     
-    func handleCoreDataError(_ error: Error, operation: String) {
-        logger.error("Core Data error during \(operation): \(error.localizedDescription)")
-        
+    func handleCoreDataError(_ error: Error, operation: CoreDataOperation) {
+        logger.error("Core Data error during \(String(describing: operation)): \(error.localizedDescription)")
+
         let appError: AppError
         switch operation {
-        case "save":
+        case .save:
             appError = .coreDataSaveFailed(error)
-        case "fetch":
+        case .fetch:
             appError = .coreDataFetchFailed(error)
-        case "delete":
+        case .delete:
             appError = .coreDataDeleteFailed(error)
-        default:
-            appError = .coreDataSaveFailed(error)
         }
-        
+
         handle(appError)
     }
 }

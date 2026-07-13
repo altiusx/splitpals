@@ -50,7 +50,7 @@ class PersonManager {
     
     func fetchAllPersons() throws -> [Person] {
         let request = Person.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \Person.name, ascending: true)]
         return try context.fetch(request)
     }
     

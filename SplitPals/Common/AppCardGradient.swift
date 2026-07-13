@@ -9,6 +9,14 @@ import SwiftUI
 struct AppCardGradient {
     let name: String
     let colors: [Color]
+
+    static let fallbackColors = [Color.blue, Color.purple]
+
+    /// Colors for the gradient with the given name, falling back to the
+    /// default when the name is missing or unknown.
+    static func colors(named name: String?) -> [Color] {
+        cardGradients.first(where: { $0.name == name })?.colors ?? fallbackColors
+    }
 }
 
 let cardGradients: [AppCardGradient] = [

@@ -8,7 +8,7 @@ import SwiftUI
 import CoreData
 
 struct GroupView: View {
-    @FetchRequest(entity: ExpenseGroup.entity(), sortDescriptors: [NSSortDescriptor(key: "createdAt", ascending: true)]
+    @FetchRequest(entity: ExpenseGroup.entity(), sortDescriptors: [NSSortDescriptor(keyPath: \ExpenseGroup.createdAt, ascending: true)]
     ) var groups: FetchedResults<ExpenseGroup>
 
     @FetchRequest(entity: Expense.entity(), sortDescriptors: [], predicate: NSPredicate(format: "group == nil")
@@ -25,13 +25,12 @@ struct GroupView: View {
     @State private var groupToDelete: ExpenseGroup?
     @State private var showDeletePrompt: Bool = false
 
+    /// The legacy fallback group is hidden while it has no expenses.
+    private static let uncategorisedGroupName = "Uncategorised Expenses"
+
     private var filteredGroups: [ExpenseGroup] {
-        groups.filter {
-            if $0.name == "Uncategorised Expenses" {
-                return !$0.expensesArray.isEmpty
-            } else {
-                return true
-            }
+        groups.filter { group in
+            group.name != Self.uncategorisedGroupName || !group.expensesArray.isEmpty
         }
     }
 
@@ -86,9 +85,7 @@ struct GroupView: View {
             }
             .alert("Delete Group?", isPresented: $showDeletePrompt, presenting: groupToDelete) { group in
                 Button("Delete", role: .destructive) {
-                    if let index = filteredGroups.firstIndex(of: group) {
-                        deleteGroup(at: IndexSet(integer: index))
-                    }
+                    deleteGroup(group)
                 }
                 Button("Cancel", role: .cancel) {}
             } message: { group in
@@ -124,20 +121,15 @@ struct GroupView: View {
         }
     }
 
-    func deleteGroup(at offsets: IndexSet) {
-        for idx in offsets {
-            do {
-                try groupManager.deleteGroup(groups[idx])
-            } catch {
-                errorHandler.handleCoreDataError(error, operation: "delete")
-            }
+    private func deleteGroup(_ group: ExpenseGroup) {
+        do {
+            try groupManager.deleteGroup(group)
+        } catch {
+            errorHandler.handleCoreDataError(error, operation: .delete)
         }
     }
 
-    func colorForGroup(_ group: ExpenseGroup) -> [Color] {
-        guard let name = group.gradientName else {
-            return cardGradients.first?.colors ?? [Color.blue, Color.purple]
-        }
-        return cardGradients.first(where: { $0.name == name })?.colors ?? [Color.blue, Color.purple]
+    private func colorForGroup(_ group: ExpenseGroup) -> [Color] {
+        AppCardGradient.colors(named: group.gradientName)
     }
 }

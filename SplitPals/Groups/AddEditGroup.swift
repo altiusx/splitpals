@@ -19,7 +19,7 @@ struct AddEditGroup: View {
 
     @FetchRequest(
         entity: Person.entity(),
-        sortDescriptors: [NSSortDescriptor(key: "name", ascending: true)]
+        sortDescriptors: [NSSortDescriptor(keyPath: \Person.name, ascending: true)]
     ) var allPersons: FetchedResults<Person>
 
     // Inputs for group creation
@@ -37,14 +37,14 @@ struct AddEditGroup: View {
     let availableGradients: [AppCardGradient] = cardGradients
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section {
                     GeometryReader { geo in
                         VStack {
                             AppCardView(
                                 icon: selectedSymbol,
-                                gradientColors: availableGradients.first(where: { $0.name == selectedGradientName })?.colors ?? [Color.blue, Color.purple],
+                                gradientColors: AppCardGradient.colors(named: selectedGradientName),
                                 title: groupName.isEmpty ? "Group" : groupName
                             )
                             .frame(width: geo.size.width * 0.7)
@@ -121,7 +121,7 @@ struct AddEditGroup: View {
             Image(systemName: person.icon ?? "person.crop.circle")
                 .foregroundStyle(.secondary)
 
-            Text(person.isCurrentUser ? "\(person.name ?? "Me") (Me)" : (person.name ?? "Unknown"))
+            Text(person.displayName)
 
             Spacer()
         }
@@ -179,7 +179,7 @@ struct AddEditGroup: View {
                 onSave?()
                 dismiss()
             } catch {
-                errorHandler.handleCoreDataError(error, operation: "save")
+                errorHandler.handleCoreDataError(error, operation: .save)
             }
         }
     }

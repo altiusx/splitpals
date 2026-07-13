@@ -10,7 +10,7 @@ extension ExpenseGroup {
     var expensesArray: [Expense] {
         let set = expenses as? Set<Expense> ?? []
         return set.sorted {
-            ($0.timestamp ?? Date()) > ($1.timestamp ?? Date())
+            ($0.timestamp ?? .distantPast) > ($1.timestamp ?? .distantPast)
         }
     }
 

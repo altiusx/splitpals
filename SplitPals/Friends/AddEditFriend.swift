@@ -22,24 +22,9 @@ struct AddEditFriend: View {
     @State private var selectedIcon: String = "person.crop.circle"
     
     var personToEdit: Person? = nil
-    
-    let avatarIcons = [
-        "person.crop.circle.fill",
-        "person.fill",
-        "figure.stand",
-        "face.smiling.inverse",
-        "star.circle.fill",
-        "heart.circle.fill",
-        "bolt.circle.fill",
-        "flame.circle.fill",
-        "leaf.circle.fill",
-        "moon.circle.fill",
-        "sun.max.circle.fill",
-        "sparkles"
-    ]
-    
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section {
                     HStack {
@@ -57,25 +42,8 @@ struct AddEditFriend: View {
                 }
                 
                 Section(header: Text("Avatar")) {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 48))], spacing: 12) {
-                        ForEach(avatarIcons, id: \.self) { icon in
-                            Image(systemName: icon)
-                                .font(.title2)
-                                .frame(width: 48, height: 48)
-                                .background(
-                                    Circle()
-                                        .fill(selectedIcon == icon ? Color.accentColor.opacity(0.2) : Color.clear)
-                                )
-                                .overlay(
-                                    Circle()
-                                        .stroke(selectedIcon == icon ? Color.accentColor : Color.clear, lineWidth: 2)
-                                )
-                                .onTapGesture {
-                                    selectedIcon = icon
-                                }
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    AvatarPicker(selectedIcon: $selectedIcon)
+                        .padding(.vertical, 4)
                 }
             }
             .navigationTitle(personToEdit == nil ? "Add Friend" : "Edit Friend")
@@ -124,7 +92,7 @@ struct AddEditFriend: View {
             }
             dismiss()
         } catch {
-            errorHandler.handleCoreDataError(error, operation: "save")
+            errorHandler.handleCoreDataError(error, operation: .save)
         }
     }
 }

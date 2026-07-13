@@ -20,24 +20,9 @@ struct OnboardingView: View {
     private var personManager: PersonManager {
         PersonManager(context: viewContext)
     }
-    
-    let avatarIcons = [
-        "person.crop.circle.fill",
-        "person.fill",
-        "figure.stand",
-        "face.smiling.inverse",
-        "star.circle.fill",
-        "heart.circle.fill",
-        "bolt.circle.fill",
-        "flame.circle.fill",
-        "leaf.circle.fill",
-        "moon.circle.fill",
-        "sun.max.circle.fill",
-        "sparkles"
-    ]
-    
+
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 32) {
                 Spacer()
                 
@@ -65,25 +50,8 @@ struct OnboardingView: View {
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 40)
                     
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 48))], spacing: 12) {
-                        ForEach(avatarIcons, id: \.self) { icon in
-                            Image(systemName: icon)
-                                .font(.title2)
-                                .frame(width: 48, height: 48)
-                                .background(
-                                    Circle()
-                                        .fill(selectedIcon == icon ? Color.accentColor.opacity(0.2) : Color.clear)
-                                )
-                                .overlay(
-                                    Circle()
-                                        .stroke(selectedIcon == icon ? Color.accentColor : Color.clear, lineWidth: 2)
-                                )
-                                .onTapGesture {
-                                    selectedIcon = icon
-                                }
-                        }
-                    }
-                    .padding(.horizontal, 40)
+                    AvatarPicker(selectedIcon: $selectedIcon)
+                        .padding(.horizontal, 40)
                 }
                 
                 Spacer()
@@ -117,7 +85,7 @@ struct OnboardingView: View {
             )
             onComplete()
         } catch {
-            errorHandler.handleCoreDataError(error, operation: "save")
+            errorHandler.handleCoreDataError(error, operation: .save)
         }
     }
 }
