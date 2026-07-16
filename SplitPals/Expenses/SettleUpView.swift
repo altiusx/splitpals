@@ -48,11 +48,8 @@ struct SettleUpView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var errorHandler = ErrorHandler()
 
-    /// Default settle-up currency behavior, configured in Settings.
-    @AppStorage("settleUpUsesHomeCurrency") private var settleUpUsesHomeCurrency = false
-
     @State private var mode: SettleMode = .manual
-    @State private var convertToHomeOverride: Bool?
+    @State private var convertsToHome = false
     @State private var pendingPayment: PendingPayment?
     @State private var transferToConfirm: PendingTransfer?
 
@@ -107,12 +104,6 @@ struct SettleUpView: View {
             }
         }
         return codes.isEmpty ? [homeCurrency] : codes
-    }
-
-    /// Whether balances are converted into the home currency instead of shown
-    /// per currency: the user's pick, or the default from Settings.
-    private var convertsToHome: Bool {
-        convertToHomeOverride ?? settleUpUsesHomeCurrency
     }
 
     /// Converting is pointless when the home currency is the only one in play.
@@ -229,7 +220,7 @@ struct SettleUpView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if offersHomeConversion {
-                    currencyMenu
+                    HomeConversionMenu(convertsToHome: $convertsToHome, homeCurrency: homeCurrency)
                 }
             }
         }
@@ -261,24 +252,6 @@ struct SettleUpView: View {
         .errorAlert(errorHandler: errorHandler)
     }
 
-    /// Switches between showing each currency separately and converting
-    /// everything into the home currency.
-    private var currencyMenu: some View {
-        Menu {
-            Picker("Currency display", selection: Binding(
-                get: { convertsToHome },
-                set: { convertToHomeOverride = $0 }
-            )) {
-                Text("Each Currency").tag(false)
-                Text("\(homeCurrency) (Home)").tag(true)
-            }
-        } label: {
-            Text(convertsToHome ? homeCurrency : "All")
-                .font(.subheadline)
-                .bold()
-        }
-        .accessibilityLabel("Display currency")
-    }
 
     // MARK: - Sections
 
@@ -400,8 +373,8 @@ struct SettleUpView: View {
             if !debtGroups.isEmpty {
                 if convertsToHome {
                     Text(mode == .manual
-                         ? "Amounts are approximate, converted to \(homeCurrency). Tap a debt to record a full or partial payment."
-                         : "Amounts are approximate, converted to \(homeCurrency). Tap the checkmark once a payment has been made.")
+                         ? "Amounts are approximate, converted to \(homeCurrency). \(exchangeRateService.ratesDisclaimer) Tap a debt to record a full or partial payment."
+                         : "Amounts are approximate, converted to \(homeCurrency). \(exchangeRateService.ratesDisclaimer) Tap the checkmark once a payment has been made.")
                 } else if activeCurrencyCodes.count > 1 {
                     Text(mode == .manual
                          ? "Each debt is settled in its own currency. Tap a debt to record a full or partial payment."

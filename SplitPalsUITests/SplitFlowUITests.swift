@@ -37,10 +37,14 @@ final class SplitFlowUITests: XCTestCase {
 
         attach(app, name: "01-groups")
 
-        // Add two friends
-        let friendsTab = app.buttons["Friends"]
-        XCTAssertTrue(friendsTab.waitForExistence(timeout: 5))
-        friendsTab.tap()
+        // Add two friends via Settings → Manage Friends
+        let settingsTab = app.buttons["Settings"]
+        XCTAssertTrue(settingsTab.waitForExistence(timeout: 5))
+        settingsTab.tap()
+        attach(app, name: "01b-settings")
+        let manageFriends = app.buttons["Manage Friends"]
+        XCTAssertTrue(manageFriends.waitForExistence(timeout: 3))
+        manageFriends.tap()
         for friend in [bob, carol] {
             app.buttons["Add Friend"].tap()
             let friendName = app.textFields["Name"]
@@ -101,6 +105,14 @@ final class SplitFlowUITests: XCTestCase {
         let caption = app.staticTexts["Paid by Chris · Split 3 ways"]
         XCTAssertTrue(caption.waitForExistence(timeout: 3))
         attach(app, name: "05-expense-list")
+
+        // The expense also appears on the Expenses tab as owed to me
+        app.buttons["Expenses"].tap()
+        let expensesEntry = app.staticTexts["Dinner"]
+        XCTAssertTrue(expensesEntry.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Owed to You"].exists)
+        attach(app, name: "05b-expenses-tab")
+        app.buttons["Groups"].tap()
 
         // Settle Up opens in Manual mode: both friends owe me
         app.buttons["Settle Up"].tap()

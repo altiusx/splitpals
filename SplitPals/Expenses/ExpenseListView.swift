@@ -10,6 +10,8 @@ struct ExpenseListView: View {
     @ObservedObject var group: ExpenseGroup
 
     @FetchRequest private var expenses: FetchedResults<Expense>
+    @FetchRequest private var splits: FetchedResults<ExpenseSplit>
+    @FetchRequest private var settlements: FetchedResults<Settlement>
     @EnvironmentObject var exchangeRateService: ExchangeRateService
 
     @Environment(\.managedObjectContext) private var viewContext
@@ -28,28 +30,31 @@ struct ExpenseListView: View {
             sortDescriptors: [NSSortDescriptor(keyPath: \Expense.timestamp, ascending: false)],
             predicate: NSPredicate(format: "group == %@", group)
         )
+        _splits = FetchRequest(
+            entity: ExpenseSplit.entity(),
+            sortDescriptors: [NSSortDescriptor(keyPath: \ExpenseSplit.id, ascending: true)],
+            predicate: NSPredicate(format: "expense.group == %@", group)
+        )
+        _settlements = FetchRequest(
+            entity: Settlement.entity(),
+            sortDescriptors: [NSSortDescriptor(keyPath: \Settlement.createdAt, ascending: false)],
+            predicate: NSPredicate(format: "group == %@", group)
+        )
     }
 
-    private var convertedTotal: Double {
-        var total = 0.0
-        for expense in expenses {
-            let code = expense.currency?.code ?? exchangeRateService.baseCurrency
-            if code == exchangeRateService.baseCurrency {
-                total += expense.amount
-            } else if let converted = exchangeRateService.convert(amount: expense.amount, from: code) {
-                total += converted
+    /// The current user's net position in this group, converted into the home
+    /// currency: positive when they're owed money, negative when they owe.
+    private var myNetBalance: Double {
+        let balances = SettlementManager.netBalances(
+            members: group.membersArray,
+            splits: Array(splits),
+            settlements: Array(settlements),
+            displayCurrency: exchangeRateService.baseCurrency,
+            convert: { amount, code in
+                exchangeRateService.convert(amount: amount, from: code)
             }
-        }
-        return total
-    }
-
-    private var formattedTotal: String {
-        "~\(CurrencyFormatter.format(amount: convertedTotal, currencyCode: exchangeRateService.baseCurrency))"
-    }
-
-    private var participantCount: Int {
-        let members = group.membersArray
-        return max(members.count, 1)
+        )
+        return balances.first { $0.person.isCurrentUser }?.balance ?? 0
     }
 
     private var currencyGroups: [(currency: Currency?, expenses: [Expense])] {
@@ -63,20 +68,10 @@ struct ExpenseListView: View {
     var body: some View {
         List {
             Section {
-                VStack(spacing: 4) {
-                    Text(formattedTotal)
-                        .font(.system(size: 48, weight: .bold))
-                        .minimumScaleFactor(0.5)
-                    Text("Total in \(exchangeRateService.baseCurrency)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text("Participants: \(participantCount)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .listRowBackground(Color.clear)
+                netBalanceHeader
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .listRowBackground(Color.clear)
             }
 
             ForEach(currencyGroups, id: \.currency) { currencyGroup in
@@ -118,6 +113,46 @@ struct ExpenseListView: View {
             }
         }
         .errorAlert(errorHandler: errorHandler)
+    }
+
+    /// Whether the net balance involved any conversion into the home
+    /// currency, making it approximate.
+    private var netBalanceIsConverted: Bool {
+        let home = exchangeRateService.baseCurrency
+        return expenses.contains { ($0.currency?.code ?? home) != home }
+            || settlements.contains { ($0.currencyCode ?? home) != home }
+    }
+
+    /// Your position in the group at a glance, mirroring settle up's colors.
+    @ViewBuilder
+    private var netBalanceHeader: some View {
+        let home = exchangeRateService.baseCurrency
+        let fractionDigits = CurrencyFormatter.fractionDigits(for: home)
+        let units = SplitCalculator.minorUnits(from: myNetBalance, fractionDigits: fractionDigits)
+        let converted = netBalanceIsConverted
+        let formatted = CurrencyFormatter.format(amount: abs(myNetBalance), currencyCode: home)
+
+        VStack(spacing: 4) {
+            if units == 0 {
+                Text("All Settled Up")
+                    .font(.title2)
+                    .bold()
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(units > 0 ? "You're owed" : "You owe")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text(converted ? "~\(formatted)" : formatted)
+                    .font(.system(size: 44, weight: .bold))
+                    .minimumScaleFactor(0.5)
+                    .foregroundStyle(units > 0 ? Color.green : .red)
+                if converted {
+                    Text("Approximate, in \(home)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     func deleteExpense(from expenses: [Expense], at offsets: IndexSet) {

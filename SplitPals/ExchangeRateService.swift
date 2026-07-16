@@ -24,6 +24,9 @@ class ExchangeRateService: ObservableObject {
         }
     }
     @Published var isLoaded = false
+    /// When the current rates were fetched from the API (or cached), for
+    /// freshness disclaimers next to converted amounts.
+    @Published private(set) var ratesUpdatedAt: Date?
 
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "SplitPals", category: "exchangeRates")
     private let cacheKey = "cachedExchangeRates"
@@ -97,6 +100,14 @@ class ExchangeRateService: ObservableObject {
         return CurrencyFormatter.format(amount: converted, currencyCode: baseCurrency)
     }
 
+    /// User-facing note about rate freshness, shown next to converted amounts.
+    var ratesDisclaimer: String {
+        guard let date = ratesUpdatedAt else {
+            return "Conversion rates may be delayed."
+        }
+        return "Rates as of \(date.formatted(date: .abbreviated, time: .shortened)) — they may be delayed."
+    }
+
     // MARK: - Cache
 
     private var isCacheFresh: Bool {
@@ -113,14 +124,17 @@ class ExchangeRateService: ObservableObject {
         rates = cached.rates
         rates[baseCurrency] = 1.0
         isLoaded = true
+        ratesUpdatedAt = UserDefaults.standard.object(forKey: cacheTimestampKey) as? Date
         logger.info("Loaded exchange rates from cache")
     }
 
     private func saveToCache() {
         let cached = CachedRates(base: baseCurrency, rates: rates)
         if let data = try? JSONEncoder().encode(cached) {
+            let now = Date()
             UserDefaults.standard.set(data, forKey: cacheKey)
-            UserDefaults.standard.set(Date(), forKey: cacheTimestampKey)
+            UserDefaults.standard.set(now, forKey: cacheTimestampKey)
+            ratesUpdatedAt = now
         }
     }
 }

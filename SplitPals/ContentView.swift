@@ -31,9 +31,9 @@ struct ContentView: View {
                         Label("Groups", systemImage: "rectangle.stack")
                     }
 
-                FriendsView()
+                MyExpensesView()
                     .tabItem {
-                        Label("Friends", systemImage: "person.2")
+                        Label("Expenses", systemImage: "receipt")
                     }
 
                 SettingsView()

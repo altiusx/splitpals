@@ -23,6 +23,11 @@ struct AddEditFriend: View {
     
     var personToEdit: Person? = nil
 
+    private var navigationTitle: String {
+        guard let personToEdit else { return "Add Friend" }
+        return personToEdit.isCurrentUser ? "Edit Profile" : "Edit Friend"
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -46,7 +51,7 @@ struct AddEditFriend: View {
                         .padding(.vertical, 4)
                 }
             }
-            .navigationTitle(personToEdit == nil ? "Add Friend" : "Edit Friend")
+            .navigationTitle(navigationTitle)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {

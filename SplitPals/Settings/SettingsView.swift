@@ -10,7 +10,6 @@ import CoreData
 
 struct SettingsView: View {
     @AppStorage("forceDarkMode") private var forceDarkMode = false
-    @AppStorage("settleUpUsesHomeCurrency") private var settleUpUsesHomeCurrency = false
     @EnvironmentObject var exchangeRateService: ExchangeRateService
 
     @FetchRequest(
@@ -18,15 +17,25 @@ struct SettingsView: View {
         sortDescriptors: [NSSortDescriptor(keyPath: \Currency.name, ascending: true)]
     ) var currencies: FetchedResults<Currency>
 
+    @FetchRequest(
+        entity: Person.entity(),
+        sortDescriptors: [],
+        predicate: NSPredicate(format: "isCurrentUser == YES")
+    ) private var currentUserResults: FetchedResults<Person>
+
+    @State private var isEditingProfile = false
+
     var body: some View {
         NavigationStack {
             Form {
+                profileSection
+
                 Section {
                     Toggle("Dark Mode", isOn: $forceDarkMode)
                 } header: {
                     Text("Appearance")
                 } footer: {
-                    Text("Turn on dark mode to always display in a dark appearance. Turning it off will follow system settings.")
+                    Text("When off, SplitPals follows your device appearance.")
                 }
 
                 Section {
@@ -43,23 +52,51 @@ struct SettingsView: View {
                 } header: {
                     Text("Currency")
                 } footer: {
-                    Text("Receipts in other currencies will show converted amounts in \(exchangeRateService.baseCurrency).")
-                }
-
-                Section {
-                    Picker("Settle Up In", selection: $settleUpUsesHomeCurrency) {
-                        Text("Each Currency").tag(false)
-                        Text("Home Currency").tag(true)
-                    }
-                } header: {
-                    Text("Settle Up")
-                } footer: {
-                    Text(settleUpUsesHomeCurrency
-                         ? "Settle up converts everything into your home currency, \(exchangeRateService.baseCurrency). You can still switch on the settle up screen."
-                         : "Settle up shows balances separately in each currency the group used. You can still switch on the settle up screen.")
+                    Text("Other currencies are shown converted to \(exchangeRateService.baseCurrency).")
                 }
             }
             .navigationTitle("Settings")
+            .sheet(isPresented: $isEditingProfile) {
+                if let user = currentUserResults.first {
+                    AddEditFriend(personToEdit: user)
+                }
+            }
+        }
+    }
+
+    /// Apple Settings-style header: the user's profile on top, with friend
+    /// management directly beneath it.
+    private var profileSection: some View {
+        Section {
+            if let user = currentUserResults.first {
+                Button {
+                    isEditingProfile = true
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: user.icon ?? "person.crop.circle.fill")
+                            .font(.system(size: 44))
+                            .foregroundStyle(.tint)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(user.name ?? "Me")
+                                .font(.title3)
+                                .bold()
+                                .foregroundStyle(Color.primary)
+                            Text("Name and avatar")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .accessibilityLabel("Edit profile")
+            }
+
+            NavigationLink {
+                FriendsListView()
+            } label: {
+                Label("Manage Friends", systemImage: "person.2")
+            }
         }
     }
 }
