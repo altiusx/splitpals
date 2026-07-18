@@ -41,6 +41,9 @@ struct ContentView: View {
                         Label("Settings", systemImage: "gearshape")
                     }
             }
+            // On iPad and Mac the tabs become a sidebar, freeing the wide
+            // leading edge; iPhone keeps the regular tab bar.
+            .tabViewStyle(.sidebarAdaptable)
         }
     }
 }

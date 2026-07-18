@@ -34,9 +34,10 @@ struct GroupView: View {
         }
     }
 
+    // Adaptive columns: two across on iPhone, more as width allows on
+    // iPad and Mac instead of two oversized cards.
     private let gridColumns = [
-        GridItem(.flexible()),
-        GridItem(.flexible())
+        GridItem(.adaptive(minimum: 160, maximum: 280), spacing: 20)
     ]
 
     enum ActiveSheet: Identifiable {
