@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+  <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#A6F05A"/><stop offset="0.55" stop-color="#5FD23E"/><stop offset="1" stop-color="#2FA23A"/>
+  </linearGradient>
+  <radialGradient id="cheek" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#FF6B8A" stop-opacity="0.85"/><stop offset="1" stop-color="#FF6B8A" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="eye" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#15202B"/><stop offset="1" stop-color="#05323A"/>
+  </linearGradient>
+  <linearGradient id="bg" x1="0.08" y1="0" x2="0.92" y2="1">
+    <stop offset="0" stop-color="#9A6BFF"/><stop offset="0.5" stop-color="#6D3DF5"/><stop offset="1" stop-color="#4B1D9E"/>
+  </linearGradient>
+  <radialGradient id="sheen" cx="0.32" cy="0.20" r="0.9">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.42"/>
+    <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.10"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="vignette" cx="0.5" cy="0.62" r="0.75">
+    <stop offset="0.55" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.22"/>
+  </radialGradient>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#12043a" flood-opacity="0.35"/>
+  </filter>
+  <filter id="halo" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="26" flood-color="#7CE04A" flood-opacity="0.55"/>
+  </filter></defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#sheen)"/>
+  <rect width="1024" height="1024" fill="url(#vignette)"/>
+  <g transform="translate(512 540) scale(0.74) translate(-512 -540)" filter="url(#soft)">
+    <g stroke="#2FA23A" stroke-width="26" fill="none" stroke-linecap="round">
+      <path d="M430 300 C 405 210, 360 175, 352 120"/>
+      <path d="M594 300 C 619 210, 664 175, 672 120"/>
+    </g>
+    <circle cx="352" cy="108" r="34" fill="#7CE04A"/>
+    <circle cx="672" cy="108" r="34" fill="#7CE04A"/>
+    <circle cx="343" cy="99" r="11" fill="#EAFFD4" opacity="0.9"/>
+    <circle cx="663" cy="99" r="11" fill="#EAFFD4" opacity="0.9"/>
+    <path d="M512 250 C 372 250, 268 344, 268 476 C 268 566, 300 628, 356 686
+             C 410 742, 466 792, 512 792 C 558 792, 614 742, 668 686
+             C 724 628, 756 566, 756 476 C 756 344, 652 250, 512 250 Z"
+          fill="url(#skin)" stroke="#26893A" stroke-width="16"/>
+    <ellipse cx="360" cy="560" rx="64" ry="46" fill="url(#cheek)"/>
+    <ellipse cx="664" cy="560" rx="64" ry="46" fill="url(#cheek)"/>
+    <path d="M356 430 C 356 500, 404 540, 448 520 C 470 510, 476 470, 468 436 C 460 402, 420 384, 388 396 C 366 404, 356 414, 356 430 Z" fill="url(#eye)"/>
+    <path d="M668 430 C 668 500, 620 540, 576 520 C 554 510, 548 470, 556 436 C 564 402, 604 384, 636 396 C 658 404, 668 414, 668 430 Z" fill="url(#eye)"/>
+    <circle cx="404" cy="444" r="20" fill="#FFFFFF"/>
+    <circle cx="444" cy="480" r="10" fill="#B98BFF"/>
+    <circle cx="616" cy="444" r="20" fill="#FFFFFF"/>
+    <circle cx="576" cy="480" r="10" fill="#B98BFF"/>
+    <path d="M470 636 C 492 660, 532 660, 554 636" fill="none" stroke="#26893A" stroke-width="16" stroke-linecap="round"/></g>
+</svg>
