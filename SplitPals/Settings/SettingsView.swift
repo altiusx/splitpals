@@ -30,6 +30,8 @@ struct SettingsView: View {
             Form {
                 profileSection
 
+                AccountSectionView()
+
                 Section {
                     Toggle("Dark Mode", isOn: $forceDarkMode)
                 } header: {
