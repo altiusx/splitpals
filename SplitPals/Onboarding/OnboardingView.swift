@@ -69,6 +69,10 @@ struct OnboardingView: View {
                 .padding(.horizontal, 40)
                 .padding(.bottom, 40)
             }
+            // Keep the fields a comfortable width on iPad and Mac instead
+            // of stretching edge to edge.
+            .frame(maxWidth: 520)
+            .frame(maxWidth: .infinity)
             .errorAlert(errorHandler: errorHandler)
         }
     }
